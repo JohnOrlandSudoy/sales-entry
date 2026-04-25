@@ -18,6 +18,7 @@ export interface SalesEntry {
   employeeName: string;
   items: SalesItem[];
   grandTotal: number;
+  manualTotal?: number;
   status: 'OPEN' | 'CLOSED';
   date: string;
   weekKey: string;

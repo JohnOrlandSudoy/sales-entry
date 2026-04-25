@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { SalesEntry, CashReconciliation, Employee } from '../types';
+import type { SalesEntry, CashReconciliation, Employee} from '../types';
 import NumericKeypad from './NumericKeypad';
 import { CheckCircle, XCircle, List } from 'lucide-react';
 
@@ -91,11 +91,25 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
                   </td>
                   <td className="px-1 text-center">
                     {s.rec ? (
-                      s.rec.status === 'MATCH' ? (
-                        <CheckCircle size={10} className="text-green-400 inline" />
-                      ) : (
-                        <XCircle size={10} className="text-red-400 inline" />
-                      )
+                      <div className="flex items-center justify-center gap-1">
+                        {s.rec.status === 'MATCH' ? (
+                          <CheckCircle size={10} className="text-green-400" />
+                        ) : (
+                          <>
+                            <XCircle size={10} className="text-red-400" />
+                            <button
+                              onClick={() => {
+                                setSelectedEmp(s.id);
+                                setShowKeypad(true);
+                                setCashInput('');
+                              }}
+                              className="text-[7px] bg-red-900/40 text-red-300 px-1 rounded border border-red-800 hover:bg-red-800 transition-colors"
+                            >
+                              RETRY
+                            </button>
+                          </>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-gray-700">-</span>
                     )}
@@ -118,6 +132,14 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
                           Edit
                         </button>
                       )}
+                      {s.status === '-' && (
+                        <button
+                          onClick={() => onGoToSales(s.id)}
+                          className="text-green-500 hover:text-green-400 text-[8px] font-bold border border-green-900 px-1 rounded bg-green-900/20"
+                        >
+                          + ADD
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -137,7 +159,7 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
             >
               <option value="">Select...</option>
               {summary
-                .filter((s) => s.allClosed && !s.rec)
+                .filter((s) => s.allClosed && (!s.rec || s.rec.status === 'NOT MATCH'))
                 .map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} (₱{s.totalSales.toFixed(2)})

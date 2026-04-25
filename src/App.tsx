@@ -91,7 +91,15 @@ function App() {
   }, []);
 
   const handleReconcile = useCallback((rec: CashReconciliation) => {
-    setReconciliation((prev) => [...prev, rec]);
+    setReconciliation((prev) => {
+      const existing = prev.findIndex((r) => r.employeeId === rec.employeeId);
+      if (existing >= 0) {
+        const updated = [...prev];
+        updated[existing] = rec;
+        return updated;
+      }
+      return [...prev, rec];
+    });
   }, []);
 
   const handleSaveSettings = useCallback((s: AppSettings) => {
@@ -211,26 +219,28 @@ function App() {
                 <table className="w-full text-[7px] border-collapse">
                   <thead className="sticky top-0 bg-gray-900 text-yellow-500 uppercase font-bold border-b border-gray-800">
                     <tr>
-                      <th className="p-1 text-left border-r border-gray-800">Date</th>
                       <th className="p-1 text-left border-r border-gray-800">Salesman</th>
                       <th className="p-1 text-left border-r border-gray-800">Barcode</th>
-                      <th className="p-1 text-right border-r border-gray-800">Price</th>
                       <th className="p-1 text-right border-r border-gray-800">Qty</th>
-                      <th className="p-1 text-right border-r border-gray-800">Disc</th>
-                      <th className="p-1 text-right">Total</th>
+                      <th className="p-1 text-right border-r border-gray-800">Price</th>
+                      <th className="p-1 text-right border-r border-gray-800">Sys Total</th>
+                      <th className="p-1 text-right">Manual</th>
                     </tr>
                   </thead>
                   <tbody className="text-cyan-400 font-mono">
                     {sales.flatMap(entry => 
                       entry.items.map((item, idx) => (
                         <tr key={`${entry.id}-${idx}`} className="border-b border-gray-900 hover:bg-gray-900/50">
-                          <td className="p-1 border-r border-gray-800 whitespace-nowrap">{entry.date}</td>
                           <td className="p-1 border-r border-gray-800 truncate max-w-[50px]">{entry.employeeName}</td>
-                          <td className="p-1 border-r border-gray-800">{item.barcode}</td>
-                          <td className="p-1 border-r border-gray-800 text-right">{item.price.toFixed(2)}</td>
+                          <td className="p-1 border-r border-gray-800 text-[6px]">{item.barcode}</td>
                           <td className="p-1 border-r border-gray-800 text-right">{item.quantity}</td>
-                          <td className="p-1 border-r border-gray-800 text-right">{item.discount}%</td>
-                          <td className="p-1 text-right text-yellow-500 font-bold">{item.lineTotal.toFixed(2)}</td>
+                          <td className="p-1 border-r border-gray-800 text-right">{item.price.toFixed(2)}</td>
+                          <td className="p-1 border-r border-gray-800 text-right text-yellow-500 font-bold">
+                            {idx === 0 ? entry.grandTotal.toFixed(2) : ''}
+                          </td>
+                          <td className="p-1 text-right text-green-500 font-bold">
+                            {idx === 0 ? (entry.manualTotal || 0).toFixed(2) : ''}
+                          </td>
                         </tr>
                       ))
                     )}
