@@ -7,9 +7,11 @@ interface Props {
   onSettings: () => void;
   onEmail: () => void;
   dateTime: string;
+  selectedDate: string;
+  onDateChange: (date: string) => void;
 }
 
-export default function Header({ currentScreen, onNavigate, onSettings, onEmail, dateTime }: Props) {
+export default function Header({ currentScreen, onNavigate, onSettings, onEmail, dateTime, selectedDate, onDateChange }: Props) {
   const tabs: { screen: Screen; icon: typeof ShoppingCart; label: string }[] = [
     { screen: 'sales', icon: ShoppingCart, label: 'Sales' },
     { screen: 'dashboard', icon: BarChart3, label: 'Dash' },
@@ -22,6 +24,16 @@ export default function Header({ currentScreen, onNavigate, onSettings, onEmail,
       <div className="flex items-center gap-1 min-w-0">
         <Clock size={10} className="text-cyan-400 shrink-0" />
         <span className="text-[9px] text-cyan-400 font-mono truncate">{dateTime}</span>
+      </div>
+
+      {/* Date Picker */}
+      <div className="flex items-center gap-1 ml-2">
+        <input 
+          type="date" 
+          value={selectedDate}
+          onChange={(e) => onDateChange(e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded px-1 py-0 text-[8px] text-cyan-400 outline-none focus:border-cyan-500"
+        />
       </div>
 
       {/* Spacer */}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Screen, AppSettings, SalesEntry, CashReconciliation } from './types';
-import { loadSettings, saveSettings, loadSales, saveSales, loadReconciliation, saveReconciliation, generateSalesCSV } from './storage';
+import { loadSettings, saveSettings, loadSales, saveSales, loadReconciliation, saveReconciliation } from './storage';
 import LockScreen from './components/LockScreen';
 import Header from './components/Header';
 import SalesEntryScreen from './components/SalesEntry';
@@ -20,6 +20,7 @@ function App() {
   const [salesEmployeeId, setSalesEmployeeId] = useState<string | undefined>(undefined);
   const [emailMsg, setEmailMsg] = useState('');
   const [showPromoReview, setShowPromoReview] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Clock
   useEffect(() => {
@@ -69,10 +70,15 @@ function App() {
   }, [masterPinTarget]);
 
   const handleSendEmail = useCallback(() => {
+    // Mark current selected date as sent
+    setSettingsState(prev => ({
+      ...prev,
+      sentDates: [...(prev.sentDates || []), selectedDate]
+    }));
     setEmailMsg('Invoice sent to client!');
     setTimeout(() => setEmailMsg(''), 2000);
     setShowPromoReview(false);
-  }, []);
+  }, [selectedDate]);
 
   const handleMasterPinCancel = useCallback(() => {
     setMasterPinTarget(null);
@@ -120,12 +126,13 @@ function App() {
     setScreen('sales');
   }, []);
 
-  // Find open entry for selected employee
-  const today = new Date().toISOString().split('T')[0];
+  // Find entry for selected employee and date
   const currentSalesEmployeeId = salesEmployeeId || settings.employees[0]?.id;
   const openEntry = currentSalesEmployeeId
-    ? sales.find((e) => e.employeeId === currentSalesEmployeeId && e.date === today && e.status === 'OPEN') || null
+    ? sales.find((e) => e.employeeId === currentSalesEmployeeId && e.date === selectedDate) || null
     : null;
+
+  const isSent = settings.sentDates?.includes(selectedDate) || false;
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
@@ -142,6 +149,8 @@ function App() {
                 onSettings={handleSettingsClick}
                 onEmail={handleEmailClick}
                 dateTime={dateTime}
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
               />
             </div>
 
@@ -153,6 +162,9 @@ function App() {
                   onSubmit={handleSubmitSales}
                   existingOpenEntry={openEntry}
                   onEmployeeChange={(id) => setSalesEmployeeId(id)}
+                  selectedEmployeeId={currentSalesEmployeeId}
+                  selectedDate={selectedDate}
+                  isSent={isSent}
                 />
               )}
               {screen === 'dashboard' && (
@@ -162,6 +174,8 @@ function App() {
                   reconciliation={reconciliation}
                   onReconcile={handleReconcile}
                   onGoToSales={handleGoToSales}
+                  selectedDate={selectedDate}
+                  isSent={isSent}
                 />
               )}
               {screen === 'settings' && (
@@ -221,7 +235,6 @@ function App() {
                     <tr>
                       <th className="p-1 text-left border-r border-gray-800">Salesman</th>
                       <th className="p-1 text-left border-r border-gray-800">Barcode</th>
-                      <th className="p-1 text-right border-r border-gray-800">Qty</th>
                       <th className="p-1 text-right border-r border-gray-800">Price</th>
                       <th className="p-1 text-right border-r border-gray-800">Sys Total</th>
                       <th className="p-1 text-right">Manual</th>
@@ -233,7 +246,6 @@ function App() {
                         <tr key={`${entry.id}-${idx}`} className="border-b border-gray-900 hover:bg-gray-900/50">
                           <td className="p-1 border-r border-gray-800 truncate max-w-[50px]">{entry.employeeName}</td>
                           <td className="p-1 border-r border-gray-800 text-[6px]">{item.barcode}</td>
-                          <td className="p-1 border-r border-gray-800 text-right">{item.quantity}</td>
                           <td className="p-1 border-r border-gray-800 text-right">{item.price.toFixed(2)}</td>
                           <td className="p-1 border-r border-gray-800 text-right text-yellow-500 font-bold">
                             {idx === 0 ? entry.grandTotal.toFixed(2) : ''}

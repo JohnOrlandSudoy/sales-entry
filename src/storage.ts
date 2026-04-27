@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: '1', name: 'John' },
     { id: '2', name: 'Howard lee' },
   ],
+  sentDates: [],
 };
 
 export function loadSettings(): AppSettings {
@@ -87,10 +88,10 @@ export function padBarcode(input: string): string {
 }
 
 export function generateSalesCSV(entries: SalesEntry[]): string {
-  const header = 'Date,Salesman,Barcode,Price,Qty,Discount,Total\n';
+  const header = 'Date,Salesman,Barcode,Price,Discount,Total\n';
   const rows = entries.flatMap(entry => 
     entry.items.map(item => 
-      `${entry.date},"${entry.employeeName}",${item.barcode},${item.price},${item.quantity},${item.discount},${item.lineTotal}`
+      `${entry.date},"${entry.employeeName}",${item.barcode},${item.price},${item.discount},${item.lineTotal}`
     )
   ).join('\n');
   return header + rows;

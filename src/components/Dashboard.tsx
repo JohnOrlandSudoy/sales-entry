@@ -9,16 +9,17 @@ interface Props {
   reconciliation: CashReconciliation[];
   onReconcile: (rec: CashReconciliation) => void;
   onGoToSales: (employeeId: string) => void;
+  selectedDate: string;
+  isSent: boolean;
 }
 
-export default function Dashboard({ entries, employees, reconciliation, onReconcile, onGoToSales }: Props) {
+export default function Dashboard({ entries, employees, reconciliation, onReconcile, onGoToSales, selectedDate, isSent }: Props) {
   const [cashInput, setCashInput] = useState('');
   const [selectedEmp, setSelectedEmp] = useState('');
   const [showKeypad, setShowKeypad] = useState(false);
   const [viewItemsEmpId, setViewItemsEmpId] = useState<string | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
-  const todayEntries = entries.filter((e) => e.date === today);
+  const todayEntries = entries.filter((e) => e.date === selectedDate);
 
   const summary = employees.map((emp) => {
     const empEntries = todayEntries.filter((e) => e.employeeId === emp.id);
@@ -55,8 +56,16 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
     <div className="w-[480px] h-[288px] bg-gray-950 flex select-none overflow-hidden">
       {/* Left: Summary table */}
       <div className="flex-1 flex flex-col min-w-0 p-1.5 gap-1">
-        <div className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider flex items-center gap-1">
-          <span className="text-[12px]">₱</span> Daily Summary - {today}
+        <div className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <span className="text-[12px]">₱</span> Daily Summary - {selectedDate}
+          </div>
+          {isSent && (
+            <div className="flex items-center gap-1 bg-green-900/40 text-green-400 px-1.5 py-0.5 rounded border border-green-800 animate-pulse">
+              <CheckCircle size={10} />
+              <span className="text-[8px] font-black tracking-widest">SENT</span>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto min-h-0 border border-gray-800 rounded bg-gray-900/50">
           <table className="w-full text-[9px]">
@@ -124,12 +133,12 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
                           <List size={10} />
                         </button>
                       )}
-                      {s.status === 'OPEN' && (
+                      {(s.status === 'OPEN' || s.status === 'CLOSED') && (
                         <button
                           onClick={() => onGoToSales(s.id)}
                           className="text-cyan-400 hover:text-cyan-300 text-[8px] underline"
                         >
-                          Edit
+                          {s.status === 'CLOSED' ? 'View/Edit' : 'Edit'}
                         </button>
                       )}
                       {s.status === '-' && (
@@ -209,7 +218,6 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
                 <thead className="sticky top-0 bg-gray-900 text-gray-500 uppercase">
                   <tr>
                     <th className="px-1 text-left">Barcode</th>
-                    <th className="px-1 text-right">Qty</th>
                     <th className="px-1 text-right">Price</th>
                     <th className="px-1 text-right">Total</th>
                   </tr>
@@ -218,7 +226,6 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
                   {selectedViewEmp.entries.flatMap(e => e.items).map((item, idx) => (
                     <tr key={idx} className="border-t border-gray-800/50">
                       <td className="px-1 text-cyan-400">{item.barcode}</td>
-                      <td className="px-1 text-right">{item.quantity}</td>
                       <td className="px-1 text-right">₱{item.price.toFixed(2)}</td>
                       <td className="px-1 text-right text-yellow-400">₱{item.lineTotal.toFixed(2)}</td>
                     </tr>

@@ -35,6 +35,7 @@ export interface AppSettings {
   systemPin: string;
   masterPin: string;
   employees: Employee[];
+  sentDates?: string[];
 }
 
 export interface WeekRecord {

@@ -148,7 +148,7 @@ export default function Settings({ settings, onSave, onBack }: Props) {
             value={pinVal}
             onChange={pinSet}
             placeholder={`${editingPin.toUpperCase()} PIN`}
-            showDecimal={false}
+            showDecimal={true}
             maxLen={4}
             onSubmit={() => setEditingPin(null)}
           />
