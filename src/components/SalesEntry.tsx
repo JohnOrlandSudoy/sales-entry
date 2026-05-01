@@ -47,6 +47,11 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
 
   const handleEmployeeChange = (id: string) => {
     if (isReviewing) return; // Prevent switch while reviewing
+    if (isSent) {
+      setEmployeeId(id);
+      onEmployeeChange(id);
+      return;
+    }
     // If there are unsaved items, we should ideally save them to the current employee's open entry first
     if (items.length > 0) {
       const currentEntry: SalesEntryType = {
@@ -71,6 +76,10 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
   const keypadMax = activeField === 'barcode' ? 13 : 10;
 
   const addItem = () => {
+    if (isSent) {
+      setMsg('Date locked (Invoice Sent)');
+      return;
+    }
     const p = parseFloat(price);
     if (!barcode || isNaN(p) || p <= 0) {
       setMsg('Invalid entry');
@@ -98,10 +107,18 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
   };
 
   const removeItem = (id: string) => {
+    if (isSent) {
+      setMsg('Date locked (Invoice Sent)');
+      return;
+    }
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
   const editItem = (item: SalesItem) => {
+    if (isSent) {
+      setMsg('Date locked (Invoice Sent)');
+      return;
+    }
     if (isReviewing) return;
     // Load item back to form
     setBarcode(item.barcode.replace(/^0+/, '')); // Remove padding for editing
@@ -120,8 +137,14 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
 
   const isModified = existingOpenEntry ? JSON.stringify(items) !== JSON.stringify(existingOpenEntry.items) : items.length > 0;
   const isAlreadyClosed = existingOpenEntry?.status === 'CLOSED' && !isModified;
+  const reviewItems = isSuccess || isAlreadyClosed ? existingOpenEntry?.items || [] : items;
+  const reviewQty = reviewItems.reduce((s, i) => s + i.quantity, 0);
 
   const startSubmit = () => {
+    if (isSent) {
+      setMsg('Date locked (Invoice Sent)');
+      return;
+    }
     if (items.length === 0) {
       setMsg('Add items first');
       return;
@@ -149,6 +172,10 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
   };
 
   const doSubmit = () => {
+    if (isSent) {
+      setMsg('Date locked (Invoice Sent)');
+      return;
+    }
     if (isSubmitting) return;
     setIsSubmitting(true);
     const entry: SalesEntryType = {
@@ -178,6 +205,10 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
   };
 
   const finalSubmit = () => {
+    if (isSent) {
+      setMsg('Date locked (Invoice Sent)');
+      return;
+    }
     if (isSubmitting) return;
     const inputTotal = parseFloat(manualTotal) || 0;
     const sysTotal = Math.round(grandTotal * 100) / 100;
@@ -199,12 +230,13 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
 
   const fieldBtn = (field: Field, label: string, val: string) => (
     <button
-      onClick={() => setActiveField(field)}
+      onClick={() => !isSent && setActiveField(field)}
+      disabled={isSent}
       className={`flex items-center justify-between px-1.5 py-1 rounded text-[10px] w-full transition-colors ${
         activeField === field
           ? 'bg-cyan-900/60 border border-cyan-500'
           : 'bg-gray-800/60 border border-gray-700 hover:border-gray-500'
-      }`}
+      } ${isSent ? 'opacity-40 cursor-not-allowed' : ''}`}
     >
       <span className="text-gray-400 uppercase tracking-wider">{label}</span>
       <span className="font-mono text-green-400 text-xs">{val || '-'}</span>
@@ -238,30 +270,7 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
         {/* Field selectors */}
         <div className="flex flex-col gap-0.5">
           {fieldBtn('barcode', 'Barcode', barcode ? padBarcode(barcode) : '')}
-          {fieldBtn('price', 'Price', price ? `₱${price}` : '')}
-          
-          {/* Discount Dropdown */}
-          <div className="flex items-center justify-between px-1.5 py-1 rounded text-[10px] w-full bg-gray-800/60 border border-gray-700">
-            <span className="text-gray-400 uppercase tracking-wider">Disc%</span>
-            <select
-              value={discount}
-              onChange={(e) => setDiscount(e.target.value)}
-              className="bg-transparent text-green-400 text-xs font-mono outline-none cursor-pointer"
-            >
-              <option value="0" className="bg-gray-900">None</option>
-              <option value="10" className="bg-gray-900">10%</option>
-              <option value="20" className="bg-gray-900">20%</option>
-            </select>
-          </div>
         </div>
-
-        {/* Qty and Add button removed Qty controls as per request */}
-        <button
-          onClick={addItem}
-          className="h-8 bg-green-800 hover:bg-green-700 rounded text-white text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
-        >
-          <ShoppingCart size={14} /> ADD ITEM
-        </button>
 
         {/* Items list */}
         <div className="flex-1 overflow-y-auto min-h-0 border border-gray-800 rounded bg-gray-900/50 custom-scrollbar relative">
@@ -319,14 +328,14 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
           </div>
           <button
             onClick={startSubmit}
-            disabled={items.length === 0 || isAlreadyClosed}
+            disabled={items.length === 0 || isAlreadyClosed || isSent}
             className={`w-full py-1.5 rounded text-[10px] font-bold uppercase tracking-widest transition-all shadow-lg ${
               isAlreadyClosed 
                 ? 'bg-green-900/40 text-green-400 border border-green-800 cursor-default shadow-none' 
                 : 'bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-800 disabled:text-gray-600 text-white shadow-cyan-900/20 active:scale-95'
             }`}
           >
-            {isAlreadyClosed ? '✓ Submitted Successfully' : 'Submit & Close'}
+            {isAlreadyClosed ? '✓ Submitted Successfully' : 'Review'}
           </button>
         </div>
 
@@ -351,7 +360,7 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800/50">
-                  {(isSuccess || isAlreadyClosed ? existingOpenEntry?.items || [] : items).map(item => (
+                  {reviewItems.map(item => (
                     <tr key={item.id}>
                       <td className="py-1 text-cyan-400 font-mono truncate max-w-[80px]">{item.barcode}</td>
                       <td className="py-1 text-right text-green-400 font-bold">₱{item.lineTotal.toFixed(2)}</td>
@@ -365,6 +374,10 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
               <div className="flex justify-between text-[10px] font-bold border-b border-gray-800 pb-1 mb-1">
                 <span className="text-gray-400 uppercase">System Total</span>
                 <span className="text-yellow-500">₱{(isSuccess || isAlreadyClosed ? existingOpenEntry?.grandTotal || 0 : grandTotal).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-[9px] font-bold border-b border-gray-800/60 pb-1 mb-1">
+                <span className="text-gray-500 uppercase">Total Qty</span>
+                <span className="text-cyan-400 font-mono">{reviewQty}</span>
               </div>
               
               <div className="flex flex-col gap-1">
@@ -459,14 +472,40 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
       </div>
 
       {/* Right: Numeric Keypad */}
-      <div className="w-[160px] p-1.5 border-l border-gray-800 bg-gray-900/30">
-        <NumericKeypad
-          value={keypadVal}
-          onChange={keypadSet}
-          placeholder={activeField.toUpperCase()}
-          showDecimal={keypadDecimal}
-          maxLen={keypadMax}
-        />
+      <div className="w-[160px] p-1 border-l border-gray-800 bg-gray-900/30 flex flex-col gap-0.5">
+        <div className={isSent ? 'pointer-events-none opacity-40' : ''}>
+          <NumericKeypad
+            value={keypadVal}
+            onChange={keypadSet}
+            placeholder={activeField.toUpperCase()}
+            showDecimal={keypadDecimal}
+            maxLen={keypadMax}
+            dense={true}
+          />
+        </div>
+        <div className={isReviewing || isSent ? 'pointer-events-none opacity-40' : ''}>
+          <div className="flex gap-1">
+            <div className="flex-1 min-w-0">{fieldBtn('price', 'Price', price ? `₱${price}` : '')}</div>
+            <div className="flex-1 min-w-0 flex items-center justify-between px-1.5 py-1 rounded text-[10px] w-full bg-gray-800/60 border border-gray-700">
+              <span className="text-gray-400 uppercase tracking-wider">Disc%</span>
+              <select
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
+                className="bg-transparent text-green-400 text-xs font-mono outline-none cursor-pointer"
+              >
+                <option value="0" className="bg-gray-900">None</option>
+                <option value="10" className="bg-gray-900">10%</option>
+                <option value="20" className="bg-gray-900">20%</option>
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={addItem}
+            className="mt-0.5 w-full h-8 bg-green-800 hover:bg-green-700 rounded text-white text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
+          >
+            <ShoppingCart size={14} /> ADD ITEM
+          </button>
+        </div>
       </div>
     </div>
   );

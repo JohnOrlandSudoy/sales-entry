@@ -9,6 +9,18 @@ import Settings from './components/Settings';
 import WeeklyHistory from './components/WeeklyHistory';
 import MasterPinChallenge from './components/MasterPinChallenge';
 
+const toDateInput = (date: Date) => {
+  const tzOffset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - tzOffset).toISOString().slice(0, 10);
+};
+
+const getDateBounds = () => {
+  const now = new Date();
+  const maxDate = toDateInput(now);
+  const minDate = toDateInput(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7));
+  return { minDate, maxDate };
+};
+
 function App() {
   const [unlocked, setUnlocked] = useState(false);
   const [screen, setScreen] = useState<Screen>('sales');
@@ -20,7 +32,7 @@ function App() {
   const [salesEmployeeId, setSalesEmployeeId] = useState<string | undefined>(undefined);
   const [emailMsg, setEmailMsg] = useState('');
   const [showPromoReview, setShowPromoReview] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => toDateInput(new Date()));
 
   // Clock
   useEffect(() => {
@@ -73,7 +85,7 @@ function App() {
     // Mark current selected date as sent
     setSettingsState(prev => ({
       ...prev,
-      sentDates: [...(prev.sentDates || []), selectedDate]
+      sentDates: (prev.sentDates || []).includes(selectedDate) ? (prev.sentDates || []) : [...(prev.sentDates || []), selectedDate]
     }));
     setEmailMsg('Invoice sent to client!');
     setTimeout(() => setEmailMsg(''), 2000);
@@ -126,6 +138,15 @@ function App() {
     setScreen('sales');
   }, []);
 
+  const handleDateChange = useCallback((next: string) => {
+    const { minDate, maxDate } = getDateBounds();
+    let val = next;
+    if (val > maxDate) val = maxDate;
+    if (val < minDate) val = minDate;
+    if ((settings.sentDates || []).includes(val) && val !== selectedDate) return;
+    setSelectedDate(val);
+  }, [settings.sentDates, selectedDate]);
+
   // Find entry for selected employee and date
   const currentSalesEmployeeId = salesEmployeeId || settings.employees[0]?.id;
   const openEntry = currentSalesEmployeeId
@@ -133,6 +154,7 @@ function App() {
     : null;
 
   const isSent = settings.sentDates?.includes(selectedDate) || false;
+  const { minDate, maxDate } = getDateBounds();
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
@@ -150,7 +172,9 @@ function App() {
                 onEmail={handleEmailClick}
                 dateTime={dateTime}
                 selectedDate={selectedDate}
-                onDateChange={setSelectedDate}
+                onDateChange={handleDateChange}
+                minDate={minDate}
+                maxDate={maxDate}
               />
             </div>
 
@@ -233,6 +257,7 @@ function App() {
                 <table className="w-full text-[7px] border-collapse">
                   <thead className="sticky top-0 bg-gray-900 text-yellow-500 uppercase font-bold border-b border-gray-800">
                     <tr>
+                      <th className="p-1 text-left border-r border-gray-800">Date</th>
                       <th className="p-1 text-left border-r border-gray-800">Salesman</th>
                       <th className="p-1 text-left border-r border-gray-800">Barcode</th>
                       <th className="p-1 text-right border-r border-gray-800">Price</th>
@@ -244,6 +269,7 @@ function App() {
                     {sales.flatMap(entry => 
                       entry.items.map((item, idx) => (
                         <tr key={`${entry.id}-${idx}`} className="border-b border-gray-900 hover:bg-gray-900/50">
+                          <td className="p-1 border-r border-gray-800 text-gray-400">{entry.date}</td>
                           <td className="p-1 border-r border-gray-800 truncate max-w-[50px]">{entry.employeeName}</td>
                           <td className="p-1 border-r border-gray-800 text-[6px]">{item.barcode}</td>
                           <td className="p-1 border-r border-gray-800 text-right">{item.price.toFixed(2)}</td>

@@ -37,6 +37,7 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
   const selectedViewEmp = summary.find(s => s.id === viewItemsEmpId);
 
   const handleReconcile = () => {
+    if (isSent) return;
     if (!selectedEmp || !cashInput) return;
     const emp = summary.find((s) => s.id === selectedEmp);
     if (!emp) return;
@@ -138,10 +139,10 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
                           onClick={() => onGoToSales(s.id)}
                           className="text-cyan-400 hover:text-cyan-300 text-[8px] underline"
                         >
-                          {s.status === 'CLOSED' ? 'View/Edit' : 'Edit'}
+                          {isSent ? 'View' : s.status === 'CLOSED' ? 'View/Edit' : 'Edit'}
                         </button>
                       )}
-                      {s.status === '-' && (
+                      {s.status === '-' && !isSent && (
                         <button
                           onClick={() => onGoToSales(s.id)}
                           className="text-green-500 hover:text-green-400 text-[8px] font-bold border border-green-900 px-1 rounded bg-green-900/20"
@@ -164,7 +165,8 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
             <select
               value={selectedEmp}
               onChange={(e) => setSelectedEmp(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[10px] text-green-400 outline-none flex-1"
+              disabled={isSent}
+              className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[10px] text-green-400 outline-none flex-1 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <option value="">Select...</option>
               {summary
@@ -177,7 +179,8 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
             </select>
             <button
               onClick={() => setShowKeypad(!showKeypad)}
-              className="h-6 px-2 bg-gray-800 border border-gray-700 rounded text-[9px] text-cyan-400 hover:bg-gray-700"
+              disabled={isSent}
+              className="h-6 px-2 bg-gray-800 border border-gray-700 rounded text-[9px] text-cyan-400 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-800"
             >
               {showKeypad ? 'Hide' : 'Cash'}
             </button>
@@ -197,7 +200,7 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
           />
           <button
             onClick={handleReconcile}
-            disabled={!selectedEmp || !cashInput}
+            disabled={isSent || !selectedEmp || !cashInput}
             className="h-7 bg-cyan-700 hover:bg-cyan-600 disabled:bg-gray-800 disabled:text-gray-600 rounded text-white text-xs font-bold active:scale-95 transition-colors"
           >
             RECONCILE

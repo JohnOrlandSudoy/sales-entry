@@ -9,9 +9,11 @@ interface Props {
   dateTime: string;
   selectedDate: string;
   onDateChange: (date: string) => void;
+  minDate?: string;
+  maxDate?: string;
 }
 
-export default function Header({ currentScreen, onNavigate, onSettings, onEmail, dateTime, selectedDate, onDateChange }: Props) {
+export default function Header({ currentScreen, onNavigate, onSettings, onEmail, dateTime, selectedDate, onDateChange, minDate, maxDate }: Props) {
   const tabs: { screen: Screen; icon: typeof ShoppingCart; label: string }[] = [
     { screen: 'sales', icon: ShoppingCart, label: 'Sales' },
     { screen: 'dashboard', icon: BarChart3, label: 'Dash' },
@@ -32,6 +34,8 @@ export default function Header({ currentScreen, onNavigate, onSettings, onEmail,
           type="date" 
           value={selectedDate}
           onChange={(e) => onDateChange(e.target.value)}
+          min={minDate}
+          max={maxDate}
           className="bg-gray-800 border border-gray-700 rounded px-1 py-0 text-[8px] text-cyan-400 outline-none focus:border-cyan-500"
         />
       </div>

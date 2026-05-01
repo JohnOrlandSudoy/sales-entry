@@ -8,6 +8,7 @@ interface Props {
   showDecimal?: boolean;
   maxLen?: number;
   label?: string;
+  dense?: boolean;
 }
 
 export default function NumericKeypad({
@@ -18,6 +19,7 @@ export default function NumericKeypad({
   showDecimal = true,
   maxLen = 15,
   label,
+  dense = false,
 }: Props) {
   const [active, setActive] = useState<string | null>(null);
 
@@ -56,10 +58,14 @@ export default function NumericKeypad({
       {label && (
         <div className="text-[9px] text-yellow-500 mb-0.5 font-bold uppercase tracking-widest font-mono">{label}</div>
       )}
-      <div className="bg-black border border-gray-800 rounded-lg px-2 py-1.5 text-right text-xl font-mono text-green-500 min-h-[36px] overflow-hidden whitespace-nowrap shadow-inner">
+      <div
+        className={`bg-black border border-gray-800 rounded-lg px-2 text-right font-mono text-green-500 overflow-hidden whitespace-nowrap shadow-inner ${
+          dense ? 'py-1 text-lg min-h-[30px]' : 'py-1.5 text-xl min-h-[36px]'
+        }`}
+      >
         {value || <span className="text-gray-700 text-sm">{placeholder}</span>}
       </div>
-      <div className="grid grid-cols-3 gap-1 mt-1">
+      <div className={`grid grid-cols-3 ${dense ? 'gap-0.5 mt-0.5' : 'gap-1 mt-1'}`}>
         {keys.map((row) =>
           row.map((key) => {
             const isBack = key === 'back';
@@ -76,7 +82,7 @@ export default function NumericKeypad({
                 key={key}
                 onClick={() => press(key)}
                 className={`
-                  h-[40px] rounded-lg text-lg font-bold transition-all duration-75 flex items-center justify-center
+                  ${dense ? 'h-[32px] text-base rounded-md' : 'h-[40px] text-lg rounded-lg'} font-bold transition-all duration-75 flex items-center justify-center
                   ${btnClass}
                   ${isActive ? 'scale-90 bg-gray-800 brightness-125' : 'hover:bg-gray-800'}
                   active:scale-95
@@ -91,7 +97,9 @@ export default function NumericKeypad({
       {onSubmit && (
         <button
           onClick={onSubmit}
-          className="mt-1 h-[40px] rounded-lg bg-green-900/40 border border-green-800 text-green-400 text-xs font-bold uppercase tracking-widest active:scale-95 transition-all hover:bg-green-800/40"
+          className={`bg-green-900/40 border border-green-800 text-green-400 text-xs font-bold uppercase tracking-widest active:scale-95 transition-all hover:bg-green-800/40 ${
+            dense ? 'mt-0.5 h-[34px] rounded-md' : 'mt-1 h-[40px] rounded-lg'
+          }`}
         >
           ENTER
         </button>
