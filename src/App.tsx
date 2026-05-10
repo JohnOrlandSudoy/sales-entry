@@ -261,27 +261,38 @@ function App() {
                       <th className="p-1 text-left border-r border-gray-800">Salesman</th>
                       <th className="p-1 text-left border-r border-gray-800">Barcode</th>
                       <th className="p-1 text-right border-r border-gray-800">Price</th>
+                      <th className="p-1 text-right border-r border-gray-800">Qty</th>
+                      <th className="p-1 text-right border-r border-gray-800">Tot Qty</th>
                       <th className="p-1 text-right border-r border-gray-800">Sys Total</th>
                       <th className="p-1 text-right">Manual</th>
                     </tr>
                   </thead>
                   <tbody className="text-cyan-400 font-mono">
-                    {sales.flatMap(entry => 
-                      entry.items.map((item, idx) => (
-                        <tr key={`${entry.id}-${idx}`} className="border-b border-gray-900 hover:bg-gray-900/50">
-                          <td className="p-1 border-r border-gray-800 text-gray-400">{entry.date}</td>
-                          <td className="p-1 border-r border-gray-800 truncate max-w-[50px]">{entry.employeeName}</td>
-                          <td className="p-1 border-r border-gray-800 text-[6px]">{item.barcode}</td>
-                          <td className="p-1 border-r border-gray-800 text-right">{item.price.toFixed(2)}</td>
-                          <td className="p-1 border-r border-gray-800 text-right text-yellow-500 font-bold">
-                            {idx === 0 ? entry.grandTotal.toFixed(2) : ''}
-                          </td>
-                          <td className="p-1 text-right text-green-500 font-bold">
-                            {idx === 0 ? (entry.manualTotal || 0).toFixed(2) : ''}
-                          </td>
-                        </tr>
-                      ))
-                    )}
+                    {sales.flatMap((entry) => {
+                      const lastIdx = entry.items.length - 1;
+                      const totalQty = entry.items.reduce((s, i) => s + i.quantity, 0);
+                      return entry.items.map((item, idx) => {
+                        const isLast = idx === lastIdx;
+                        return (
+                          <tr key={`${entry.id}-${idx}`} className="border-b border-gray-900 hover:bg-gray-900/50">
+                            <td className="p-1 border-r border-gray-800 text-gray-400">{entry.date}</td>
+                            <td className="p-1 border-r border-gray-800 truncate max-w-[50px]">{entry.employeeName}</td>
+                            <td className="p-1 border-r border-gray-800 text-[6px]">{item.barcode}</td>
+                            <td className="p-1 border-r border-gray-800 text-right">{item.price.toFixed(2)}</td>
+                            <td className="p-1 border-r border-gray-800 text-right">{item.quantity}</td>
+                            <td className="p-1 border-r border-gray-800 text-right text-cyan-300 font-bold">
+                              {isLast ? totalQty : ''}
+                            </td>
+                            <td className="p-1 border-r border-gray-800 text-right text-yellow-500 font-bold">
+                              {isLast ? entry.grandTotal.toFixed(2) : ''}
+                            </td>
+                            <td className="p-1 text-right text-green-500 font-bold">
+                              {isLast ? (entry.manualTotal || 0).toFixed(2) : ''}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })}
                   </tbody>
                 </table>
               </div>

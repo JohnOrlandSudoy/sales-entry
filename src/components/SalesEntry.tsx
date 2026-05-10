@@ -228,18 +228,19 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
     doSubmit();
   };
 
-  const fieldBtn = (field: Field, label: string, val: string) => (
+  const fieldBtn = (field: Field, label: string, val: string, extraClass = '') => (
     <button
+      type="button"
       onClick={() => !isSent && setActiveField(field)}
       disabled={isSent}
-      className={`flex items-center justify-between px-1.5 py-1 rounded text-[10px] w-full transition-colors ${
+      className={`flex items-center justify-between px-1.5 py-1 rounded text-[10px] w-full shrink-0 transition-colors ${
         activeField === field
           ? 'bg-cyan-900/60 border border-cyan-500'
           : 'bg-gray-800/60 border border-gray-700 hover:border-gray-500'
-      } ${isSent ? 'opacity-40 cursor-not-allowed' : ''}`}
+      } ${isSent ? 'opacity-40 cursor-not-allowed' : ''} ${extraClass}`}
     >
-      <span className="text-gray-400 uppercase tracking-wider">{label}</span>
-      <span className="font-mono text-green-400 text-xs">{val || '-'}</span>
+      <span className="text-gray-400 uppercase tracking-wider shrink-0">{label}</span>
+      <span className="font-mono text-green-400 text-xs truncate text-right">{val || '-'}</span>
     </button>
   );
 
@@ -471,8 +472,8 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
         )}
       </div>
 
-      {/* Right: Numeric Keypad */}
-      <div className="w-[160px] p-1 border-l border-gray-800 bg-gray-900/30 flex flex-col gap-0.5">
+      {/* Right: Numeric Keypad — self-start so column height matches content (no dead space below ADD ITEM) */}
+      <div className="w-[160px] shrink-0 self-start max-h-full p-1 border-l border-gray-800 bg-gray-900/30 flex flex-col gap-1">
         <div className={isSent ? 'pointer-events-none opacity-40' : ''}>
           <NumericKeypad
             value={keypadVal}
@@ -483,25 +484,28 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
             dense={true}
           />
         </div>
-        <div className={isReviewing || isSent ? 'pointer-events-none opacity-40' : ''}>
-          <div className="flex gap-1">
-            <div className="flex-1 min-w-0">{fieldBtn('price', 'Price', price ? `₱${price}` : '')}</div>
-            <div className="flex-1 min-w-0 flex items-center justify-between px-1.5 py-1 rounded text-[10px] w-full bg-gray-800/60 border border-gray-700">
-              <span className="text-gray-400 uppercase tracking-wider">Disc%</span>
-              <select
-                value={discount}
-                onChange={(e) => setDiscount(e.target.value)}
-                className="bg-transparent text-green-400 text-xs font-mono outline-none cursor-pointer"
-              >
-                <option value="0" className="bg-gray-900">None</option>
-                <option value="10" className="bg-gray-900">10%</option>
-                <option value="20" className="bg-gray-900">20%</option>
-              </select>
+        <div className={`flex flex-col gap-1 ${isReviewing || isSent ? 'pointer-events-none opacity-40' : ''}`}>
+          <div className="flex gap-1 items-stretch">
+            <div className="flex-1 min-w-0 flex">{fieldBtn('price', 'Price', price ? `₱${price}` : '', 'min-h-[36px] py-1.5')}</div>
+            <div className="flex-1 min-w-0 flex items-stretch rounded text-[10px] bg-gray-800/60 border border-gray-700 px-1.5 py-1.5 min-h-[36px]">
+              <div className="flex w-full items-center justify-between gap-0.5">
+                <span className="text-gray-400 uppercase tracking-wider shrink-0">Disc%</span>
+                <select
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  className="min-w-0 flex-1 bg-transparent text-green-400 text-xs font-mono outline-none cursor-pointer text-right"
+                >
+                  <option value="0" className="bg-gray-900">None</option>
+                  <option value="10" className="bg-gray-900">10%</option>
+                  <option value="20" className="bg-gray-900">20%</option>
+                </select>
+              </div>
             </div>
           </div>
           <button
+            type="button"
             onClick={addItem}
-            className="mt-0.5 w-full h-8 bg-green-800 hover:bg-green-700 rounded text-white text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
+            className="w-full min-h-[36px] py-1.5 bg-green-800 hover:bg-green-700 rounded text-white text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
           >
             <ShoppingCart size={14} /> ADD ITEM
           </button>
