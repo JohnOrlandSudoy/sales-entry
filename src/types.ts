@@ -36,6 +36,8 @@ export interface AppSettings {
   masterPin: string;
   employees: Employee[];
   sentDates?: string[];
+  promoHeadName: string;
+  senderEmail: string;
 }
 
 export interface WeekRecord {

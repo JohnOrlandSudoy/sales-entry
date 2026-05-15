@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { AppSettings, Employee } from '../types';
 import { genId } from '../storage';
 import NumericKeypad from './NumericKeypad';
-import { UserPlus, Trash2, Shield, KeyRound } from 'lucide-react';
+import { UserPlus, Trash2, Shield, KeyRound, Mail, User, Unlock } from 'lucide-react';
 
 interface Props {
   settings: AppSettings;
@@ -15,6 +15,9 @@ type PinField = 'system' | 'master' | null;
 export default function Settings({ settings, onSave, onBack }: Props) {
   const [employees, setEmployees] = useState<Employee[]>(settings.employees);
   const [newName, setNewName] = useState('');
+  const [promoHeadName, setPromoHeadName] = useState(settings.promoHeadName);
+  const [senderEmail, setSenderEmail] = useState(settings.senderEmail);
+  const [sentDates, setSentDates] = useState<string[]>(settings.sentDates ?? []);
   const [systemPin, setSystemPin] = useState(settings.systemPin);
   const [masterPin, setMasterPin] = useState(settings.masterPin);
   const [editingPin, setEditingPin] = useState<PinField>(null);
@@ -36,11 +39,20 @@ export default function Settings({ settings, onSave, onBack }: Props) {
     setEmployees((prev) => prev.filter((e) => e.id !== id));
   };
 
+  const unlockSentDate = (date: string) => {
+    setSentDates((prev) => prev.filter((d) => d !== date));
+    setMsg(`Unlocked ${date} — save to apply`);
+    setTimeout(() => setMsg(''), 2000);
+  };
+
   const save = () => {
     const newSettings: AppSettings = {
       systemPin: systemPin || settings.systemPin,
       masterPin: masterPin || settings.masterPin,
       employees,
+      sentDates,
+      promoHeadName: promoHeadName.trim() || settings.promoHeadName,
+      senderEmail: senderEmail.trim(),
     };
     onSave(newSettings);
     setMsg('Saved!');
@@ -66,6 +78,53 @@ export default function Settings({ settings, onSave, onBack }: Props) {
             Back
           </button>
         </div>
+
+        {/* Invoice / email */}
+        <div className="shrink-0 space-y-1">
+          <div className="text-[9px] text-gray-500 uppercase tracking-wider">Invoice / Email</div>
+          <div className="flex items-center gap-1">
+            <User size={9} className="text-gray-500 shrink-0" />
+            <input
+              value={promoHeadName}
+              onChange={(e) => setPromoHeadName(e.target.value)}
+              placeholder="Promo head name..."
+              className="flex-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-yellow-400 outline-none focus:border-cyan-500"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <Mail size={9} className="text-gray-500 shrink-0" />
+            <input
+              type="email"
+              value={senderEmail}
+              onChange={(e) => setSenderEmail(e.target.value)}
+              placeholder="Sender email..."
+              className="flex-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-cyan-400 outline-none focus:border-cyan-500"
+            />
+          </div>
+        </div>
+
+        {sentDates.length > 0 && (
+          <div className="shrink-0">
+            <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">Locked dates (invoice sent)</div>
+            <div className="border border-green-900/50 rounded bg-green-950/20 max-h-[52px] overflow-y-auto">
+              {sentDates.map((date) => (
+                <div
+                  key={date}
+                  className="flex items-center justify-between px-1.5 py-0.5 border-b border-gray-800/50 last:border-0"
+                >
+                  <span className="text-green-400 text-[9px] font-mono">{date}</span>
+                  <button
+                    type="button"
+                    onClick={() => unlockSentDate(date)}
+                    className="text-[8px] text-orange-400 hover:text-orange-300 font-bold flex items-center gap-0.5"
+                  >
+                    <Unlock size={9} /> Unlock
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Employee management */}
         <div className="flex-1 overflow-y-auto min-h-0">

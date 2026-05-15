@@ -21,6 +21,40 @@ const getDateBounds = () => {
   return { minDate, maxDate };
 };
 
+/** Flat invoice rows sorted by salesman, then date. */
+function buildInvoiceReviewRows(entries: SalesEntry[]) {
+  const rows = entries.flatMap((entry) => {
+    const lastIdx = entry.items.length - 1;
+    return entry.items.map((item, itemIdx) => ({
+      entry,
+      item,
+      itemIdx,
+      isLastInSale: itemIdx === lastIdx,
+    }));
+  });
+
+  rows.sort((a, b) => {
+    const byName = a.entry.employeeName.localeCompare(b.entry.employeeName);
+    if (byName !== 0) return byName;
+    return a.entry.date.localeCompare(b.entry.date);
+  });
+
+  const totalQtyBySalesman = new Map<string, number>();
+  for (const { entry, item } of rows) {
+    const name = entry.employeeName;
+    totalQtyBySalesman.set(name, (totalQtyBySalesman.get(name) ?? 0) + item.quantity);
+  }
+
+  const lastRowBySalesman = new Map<string, number>();
+  rows.forEach((r, i) => lastRowBySalesman.set(r.entry.employeeName, i));
+
+  return rows.map((r, i) => ({
+    ...r,
+    isLastForSalesman: lastRowBySalesman.get(r.entry.employeeName) === i,
+    salesmanTotalQty: totalQtyBySalesman.get(r.entry.employeeName) ?? 0,
+  }));
+}
+
 function App() {
   const [unlocked, setUnlocked] = useState(false);
   const [screen, setScreen] = useState<Screen>('sales');
@@ -82,15 +116,20 @@ function App() {
   }, [masterPinTarget]);
 
   const handleSendEmail = useCallback(() => {
-    // Mark current selected date as sent
-    setSettingsState(prev => ({
+    setSettingsState((prev) => ({
       ...prev,
-      sentDates: (prev.sentDates || []).includes(selectedDate) ? (prev.sentDates || []) : [...(prev.sentDates || []), selectedDate]
+      sentDates: (prev.sentDates || []).includes(selectedDate)
+        ? (prev.sentDates || [])
+        : [...(prev.sentDates || []), selectedDate],
     }));
-    setEmailMsg('Invoice sent to client!');
+    setEmailMsg(
+      settings.senderEmail
+        ? `Invoice sent from ${settings.senderEmail}!`
+        : 'Invoice sent to client!'
+    );
     setTimeout(() => setEmailMsg(''), 2000);
     setShowPromoReview(false);
-  }, [selectedDate]);
+  }, [selectedDate, settings.senderEmail]);
 
   const handleMasterPinCancel = useCallback(() => {
     setMasterPinTarget(null);
@@ -249,7 +288,7 @@ function App() {
                 <div className="bg-gray-900 border border-gray-700 rounded w-[440px] h-[260px] flex flex-col shadow-2xl overflow-hidden">
                   <div className="p-2 border-b border-gray-800 flex justify-between items-center bg-gray-950">
                     <div className="text-[10px] text-yellow-400 font-bold uppercase tracking-widest">
-                      Review by: Ms. Helen - CSV Invoice
+                      Review by: {settings.promoHeadName} - CSV Invoice
                     </div>
                     <button onClick={() => setShowPromoReview(false)} className="text-gray-500 hover:text-white">✕</button>
                   </div>
@@ -268,31 +307,27 @@ function App() {
                     </tr>
                   </thead>
                   <tbody className="text-cyan-400 font-mono">
-                    {sales.flatMap((entry) => {
-                      const lastIdx = entry.items.length - 1;
-                      const totalQty = entry.items.reduce((s, i) => s + i.quantity, 0);
-                      return entry.items.map((item, idx) => {
-                        const isLast = idx === lastIdx;
-                        return (
-                          <tr key={`${entry.id}-${idx}`} className="border-b border-gray-900 hover:bg-gray-900/50">
-                            <td className="p-1 border-r border-gray-800 text-gray-400">{entry.date}</td>
-                            <td className="p-1 border-r border-gray-800 truncate max-w-[50px]">{entry.employeeName}</td>
-                            <td className="p-1 border-r border-gray-800 text-[6px]">{item.barcode}</td>
-                            <td className="p-1 border-r border-gray-800 text-right">{item.price.toFixed(2)}</td>
-                            <td className="p-1 border-r border-gray-800 text-right">{item.quantity}</td>
-                            <td className="p-1 border-r border-gray-800 text-right text-cyan-300 font-bold">
-                              {isLast ? totalQty : ''}
-                            </td>
-                            <td className="p-1 border-r border-gray-800 text-right text-yellow-500 font-bold">
-                              {isLast ? entry.grandTotal.toFixed(2) : ''}
-                            </td>
-                            <td className="p-1 text-right text-green-500 font-bold">
-                              {isLast ? (entry.manualTotal || 0).toFixed(2) : ''}
-                            </td>
-                          </tr>
-                        );
-                      });
-                    })}
+                    {buildInvoiceReviewRows(sales).map(({ entry, item, itemIdx, isLastInSale, isLastForSalesman, salesmanTotalQty }) => (
+                      <tr
+                        key={`${entry.id}-${itemIdx}`}
+                        className={`border-b border-gray-900 hover:bg-gray-900/50 ${isLastForSalesman ? 'border-b-gray-700' : ''}`}
+                      >
+                        <td className="p-1 border-r border-gray-800 text-gray-400">{entry.date}</td>
+                        <td className="p-1 border-r border-gray-800 truncate max-w-[50px]">{entry.employeeName}</td>
+                        <td className="p-1 border-r border-gray-800 text-[6px]">{item.barcode}</td>
+                        <td className="p-1 border-r border-gray-800 text-right">{item.price.toFixed(2)}</td>
+                        <td className="p-1 border-r border-gray-800 text-right">{item.quantity}</td>
+                        <td className="p-1 border-r border-gray-800 text-right text-cyan-300 font-bold">
+                          {isLastForSalesman ? salesmanTotalQty : ''}
+                        </td>
+                        <td className="p-1 border-r border-gray-800 text-right text-yellow-500 font-bold">
+                          {isLastInSale ? entry.grandTotal.toFixed(2) : ''}
+                        </td>
+                        <td className="p-1 text-right text-green-500 font-bold">
+                          {isLastInSale ? (entry.manualTotal ?? 0).toFixed(2) : ''}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

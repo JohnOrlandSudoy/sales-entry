@@ -12,6 +12,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: '2', name: 'Howard lee' },
   ],
   sentDates: [],
+  promoHeadName: 'Ms. Helen',
+  senderEmail: '',
 };
 
 export function loadSettings(): AppSettings {
@@ -20,7 +22,15 @@ export function loadSettings(): AppSettings {
     saveSettings(DEFAULT_SETTINGS);
     return DEFAULT_SETTINGS;
   }
-  return JSON.parse(raw);
+  const parsed = JSON.parse(raw) as Partial<AppSettings>;
+  return {
+    ...DEFAULT_SETTINGS,
+    ...parsed,
+    employees: parsed.employees ?? DEFAULT_SETTINGS.employees,
+    sentDates: parsed.sentDates ?? DEFAULT_SETTINGS.sentDates,
+    promoHeadName: parsed.promoHeadName?.trim() || DEFAULT_SETTINGS.promoHeadName,
+    senderEmail: parsed.senderEmail?.trim() ?? DEFAULT_SETTINGS.senderEmail,
+  };
 }
 
 export function saveSettings(s: AppSettings) {
