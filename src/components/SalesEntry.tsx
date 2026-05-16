@@ -32,16 +32,47 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
   const [confirmAmount, setConfirmAmount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
-  // Sync items when existingOpenEntry changes (e.g. employee switch)
+  const buildDraftEntry = (itemsList: SalesItem[]): SalesEntryType => ({
+    id: existingOpenEntry?.id || genId(),
+    employeeId,
+    employeeName: selectedEmployee?.name || 'Unknown',
+    items: itemsList,
+    grandTotal: Math.round(itemsList.reduce((s, i) => s + i.lineTotal, 0) * 100) / 100,
+    status:
+      existingOpenEntry?.status === 'CLOSED' &&
+      JSON.stringify(itemsList) !== JSON.stringify(existingOpenEntry.items)
+        ? 'OPEN'
+        : existingOpenEntry?.status || 'OPEN',
+    date: selectedDate,
+    weekKey: getWeekKey(new Date(selectedDate)),
+  });
+
+  const clearForm = () => {
+    setBarcode('');
+    setPrice('');
+    setDiscount('0');
+    setQuantity(1);
+    setActiveField('barcode');
+    setEditingItemId(null);
+  };
+
+  // Sync when switching salesman, date, or entry — not on every save (same entry id)
   useEffect(() => {
     setEmployeeId(selectedEmployeeId);
+    setEditingItemId(null);
+    setBarcode('');
+    setPrice('');
+    setDiscount('0');
+    setQuantity(1);
+    setActiveField('barcode');
     if (existingOpenEntry) {
       setItems(existingOpenEntry.items);
     } else {
       setItems([]);
     }
-  }, [existingOpenEntry, selectedEmployeeId]);
+  }, [existingOpenEntry?.id, selectedEmployeeId, selectedDate]);
 
   const selectedEmployee = employees.find((e) => e.id === employeeId);
 
@@ -54,18 +85,9 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
     }
     // If there are unsaved items, we should ideally save them to the current employee's open entry first
     if (items.length > 0) {
-      const currentEntry: SalesEntryType = {
-        id: existingOpenEntry?.id || genId(),
-        employeeId,
-        employeeName: selectedEmployee?.name || 'Unknown',
-        items,
-        grandTotal: Math.round(items.reduce((s, i) => s + i.lineTotal, 0) * 100) / 100,
-        status: existingOpenEntry?.status || 'OPEN',
-        date: selectedDate,
-        weekKey: getWeekKey(new Date(selectedDate)),
-      };
-      onSubmit(currentEntry);
+      onSubmit(buildDraftEntry(items));
     }
+    setEditingItemId(null);
     setEmployeeId(id);
     onEmployeeChange(id);
   };
@@ -89,7 +111,7 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
     const lineTotal = (p * quantity) * (1 - discVal / 100);
 
     const item: SalesItem = {
-      id: genId(),
+      id: editingItemId || genId(),
       barcode: padBarcode(barcode),
       price: p,
       quantity,
@@ -97,13 +119,14 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
       lineTotal: Math.round(lineTotal * 100) / 100,
     };
 
-    setItems((prev) => [...prev, item]);
-    setBarcode('');
-    setPrice('');
-    setDiscount('0');
-    setQuantity(1);
-    setActiveField('barcode');
-    setMsg('');
+    const nextItems = editingItemId
+      ? items.map((i) => (i.id === editingItemId ? item : i))
+      : [...items, item];
+    setItems(nextItems);
+    onSubmit(buildDraftEntry(nextItems));
+    clearForm();
+    setMsg(editingItemId ? 'Item updated' : '');
+    setTimeout(() => setMsg(''), 1500);
   };
 
   const removeItem = (id: string) => {
@@ -111,7 +134,15 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
       setMsg('Date locked (Invoice Sent)');
       return;
     }
-    setItems((prev) => prev.filter((i) => i.id !== id));
+    const nextItems = items.filter((i) => i.id !== id);
+    setItems(nextItems);
+    if (editingItemId === id) clearForm();
+    if (nextItems.length > 0) onSubmit(buildDraftEntry(nextItems));
+  };
+
+  const cancelEdit = () => {
+    clearForm();
+    setMsg('');
   };
 
   const editItem = (item: SalesItem) => {
@@ -120,16 +151,14 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
       return;
     }
     if (isReviewing) return;
-    // Load item back to form
-    setBarcode(item.barcode.replace(/^0+/, '')); // Remove padding for editing
+    setEditingItemId(item.id);
+    setBarcode(item.barcode.replace(/^0+/, ''));
     setPrice(item.price.toString());
     setDiscount(item.discount.toString());
     setQuantity(item.quantity);
-    // Remove from list
-    removeItem(item.id);
-    setActiveField('price');
-    setMsg('Editing item...');
-    setTimeout(() => setMsg(''), 1500);
+    setActiveField('barcode');
+    setMsg('Editing — tap UPDATE ITEM when done');
+    setTimeout(() => setMsg(''), 2000);
   };
 
   const grandTotal = items.reduce((s, i) => s + i.lineTotal, 0);
@@ -287,7 +316,12 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
           ) : (
             <div className="divide-y divide-gray-800/50">
               {items.map((item) => (
-                <div key={item.id} className="p-1.5 flex flex-col gap-0.5 hover:bg-gray-800/30 group">
+                <div
+                  key={item.id}
+                  className={`p-1.5 flex flex-col gap-0.5 hover:bg-gray-800/30 group ${
+                    editingItemId === item.id ? 'bg-cyan-900/30 ring-1 ring-cyan-600/60 rounded' : ''
+                  }`}
+                >
                   <div className="flex justify-between items-start">
                     <span className="text-[9px] text-cyan-400 font-mono leading-none">{item.barcode}</span>
                     <div className="flex gap-2">
@@ -472,9 +506,9 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
         )}
       </div>
 
-      {/* Right: Numeric Keypad — self-start so column height matches content (no dead space below ADD ITEM) */}
-      <div className="w-[160px] shrink-0 self-start max-h-full p-1 border-l border-gray-800 bg-gray-900/30 flex flex-col gap-1">
-        <div className={isSent ? 'pointer-events-none opacity-40' : ''}>
+      {/* Right: keypad top, price/discount/add item pinned to bottom */}
+      <div className="w-[160px] shrink-0 h-full p-1 border-l border-gray-800 bg-gray-900/30 flex flex-col min-h-0 overflow-hidden">
+        <div className={`flex-1 min-h-0 overflow-y-auto ${isSent ? 'pointer-events-none opacity-40' : ''}`}>
           <NumericKeypad
             value={keypadVal}
             onChange={keypadSet}
@@ -484,31 +518,36 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
             dense={true}
           />
         </div>
-        <div className={`flex flex-col gap-1 ${isReviewing || isSent ? 'pointer-events-none opacity-40' : ''}`}>
-          <div className="flex gap-1 items-stretch">
-            <div className="flex-1 min-w-0 flex">{fieldBtn('price', 'Price', price ? `₱${price}` : '', 'min-h-[36px] py-1.5')}</div>
-            <div className="flex-1 min-w-0 flex items-stretch rounded text-[10px] bg-gray-800/60 border border-gray-700 px-1.5 py-1.5 min-h-[36px]">
-              <div className="flex w-full items-center justify-between gap-0.5">
-                <span className="text-gray-400 uppercase tracking-wider shrink-0">Disc%</span>
-                <select
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  className="min-w-0 flex-1 bg-transparent text-green-400 text-xs font-mono outline-none cursor-pointer text-right"
-                >
-                  <option value="0" className="bg-gray-900">None</option>
-                  <option value="10" className="bg-gray-900">10%</option>
-                  <option value="20" className="bg-gray-900">20%</option>
-                </select>
-              </div>
-            </div>
+        <div className={`shrink-0 pt-2 border-t border-gray-800/80 flex flex-col gap-1.5 ${isReviewing || isSent ? 'pointer-events-none opacity-40' : ''}`}>
+          <div className="w-full">{fieldBtn('price', 'Price', price ? `₱${price}` : '', 'min-h-[30px] py-1')}</div>
+          <div className="w-full rounded bg-gray-800/60 border border-gray-700 px-2 py-1 flex flex-col gap-0.5">
+            <span className="text-[8px] text-gray-500 uppercase tracking-wider leading-none">Discount</span>
+            <select
+              value={discount}
+              onChange={(e) => setDiscount(e.target.value)}
+              className="w-full bg-gray-900/80 border border-gray-700 rounded px-1.5 py-1 text-green-400 text-[10px] font-mono outline-none cursor-pointer focus:border-cyan-600"
+            >
+              <option value="0" className="bg-gray-900">None (0%)</option>
+              <option value="10" className="bg-gray-900">10% off</option>
+              <option value="20" className="bg-gray-900">20% off</option>
+            </select>
           </div>
           <button
             type="button"
             onClick={addItem}
-            className="w-full min-h-[36px] py-1.5 bg-green-800 hover:bg-green-700 rounded text-white text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
+            className="w-full h-9 shrink-0 bg-green-800 hover:bg-green-700 rounded text-white text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
           >
-            <ShoppingCart size={14} /> ADD ITEM
+            <ShoppingCart size={14} /> {editingItemId ? 'UPDATE ITEM' : 'ADD ITEM'}
           </button>
+          {editingItemId && (
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="w-full h-6 text-[9px] text-gray-500 hover:text-gray-300 font-bold uppercase"
+            >
+              Cancel edit
+            </button>
+          )}
         </div>
       </div>
     </div>
