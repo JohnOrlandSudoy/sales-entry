@@ -507,43 +507,64 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
       </div>
 
       {/* Right: keypad top, price/discount/add item pinned to bottom */}
-      <div className="w-[160px] shrink-0 h-full p-1 border-l border-gray-800 bg-gray-900/30 flex flex-col min-h-0 overflow-hidden">
-        <div className={`flex-1 min-h-0 overflow-y-auto ${isSent ? 'pointer-events-none opacity-40' : ''}`}>
+      <div className="w-[170px] shrink-0 h-full p-1.5 border-l border-gray-800 bg-gray-900/30 flex flex-col min-h-0 overflow-hidden">
+        <div className={`flex-1 min-h-0 flex flex-col overflow-hidden ${isSent ? 'pointer-events-none opacity-40' : ''}`}>
           <NumericKeypad
             value={keypadVal}
             onChange={keypadSet}
             placeholder={activeField.toUpperCase()}
             showDecimal={keypadDecimal}
             maxLen={keypadMax}
-            dense={true}
+            dense
+            fillHeight
           />
         </div>
-        <div className={`shrink-0 pt-2 border-t border-gray-800/80 flex flex-col gap-1.5 ${isReviewing || isSent ? 'pointer-events-none opacity-40' : ''}`}>
-          <div className="w-full">{fieldBtn('price', 'Price', price ? `₱${price}` : '', 'min-h-[30px] py-1')}</div>
-          <div className="w-full rounded bg-gray-800/60 border border-gray-700 px-2 py-1 flex flex-col gap-0.5">
-            <span className="text-[8px] text-gray-500 uppercase tracking-wider leading-none">Discount</span>
-            <select
-              value={discount}
-              onChange={(e) => setDiscount(e.target.value)}
-              className="w-full bg-gray-900/80 border border-gray-700 rounded px-1.5 py-1 text-green-400 text-[10px] font-mono outline-none cursor-pointer focus:border-cyan-600"
+        <div
+          className={`shrink-0 pt-2 mt-1 border-t border-gray-800 flex flex-col gap-1.5 ${
+            isReviewing || isSent ? 'pointer-events-none opacity-40' : ''
+          }`}
+        >
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => !isSent && setActiveField('price')}
+              disabled={isSent}
+              className={`flex flex-col justify-center px-2 py-1 h-[50px] rounded border text-left transition-colors ${
+                activeField === 'price'
+                  ? 'bg-cyan-900/60 border-cyan-500'
+                  : 'bg-gray-800/60 border-gray-700 hover:border-gray-500'
+              }`}
             >
-              <option value="0" className="bg-gray-900">None (0%)</option>
-              <option value="10" className="bg-gray-900">10% off</option>
-              <option value="20" className="bg-gray-900">20% off</option>
-            </select>
+              <span className="text-[7px] text-gray-500 uppercase tracking-wider">Price</span>
+              <span className="font-mono text-green-400 text-sm truncate leading-tight">
+                {price ? `₱${price}` : '—'}
+              </span>
+            </button>
+            <div className="flex flex-col justify-center px-2 py-1 h-[50px] rounded border bg-gray-800/60 border-gray-700">
+              <span className="text-[7px] text-gray-500 uppercase tracking-wider leading-none mb-0.5">Disc%</span>
+              <select
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
+                className="w-full bg-gray-900/90 border border-gray-700 rounded px-1 py-1 text-green-400 text-[11px] font-mono outline-none cursor-pointer focus:border-cyan-600"
+              >
+                <option value="0" className="bg-gray-900">0%</option>
+                <option value="10" className="bg-gray-900">10%</option>
+                <option value="20" className="bg-gray-900">20%</option>
+              </select>
+            </div>
           </div>
           <button
             type="button"
             onClick={addItem}
-            className="w-full h-9 shrink-0 bg-green-800 hover:bg-green-700 rounded text-white text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
+            className="w-full h-10 shrink-0 bg-green-800 hover:bg-green-700 rounded text-white text-[11px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform shadow-lg shadow-green-950/30"
           >
-            <ShoppingCart size={14} /> {editingItemId ? 'UPDATE ITEM' : 'ADD ITEM'}
+            <ShoppingCart size={15} /> {editingItemId ? 'UPDATE ITEM' : 'ADD ITEM'}
           </button>
           {editingItemId && (
             <button
               type="button"
               onClick={cancelEdit}
-              className="w-full h-6 text-[9px] text-gray-500 hover:text-gray-300 font-bold uppercase"
+              className="w-full h-5 text-[8px] text-gray-500 hover:text-gray-300 font-bold uppercase tracking-wide"
             >
               Cancel edit
             </button>
