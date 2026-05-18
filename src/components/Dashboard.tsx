@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { SalesEntry, CashReconciliation, Employee} from '../types';
+import type { SalesEntry, CashReconciliation, Employee } from '../types';
+import { salesSentKey } from '../storage';
 import NumericKeypad from './NumericKeypad';
 import { CheckCircle, XCircle, List } from 'lucide-react';
 
@@ -11,9 +12,20 @@ interface Props {
   onGoToSales: (employeeId: string) => void;
   selectedDate: string;
   isSent: boolean;
+  sentSalesKeys: string[];
 }
 
-export default function Dashboard({ entries, employees, reconciliation, onReconcile, onGoToSales, selectedDate, isSent }: Props) {
+export default function Dashboard({
+  entries,
+  employees,
+  reconciliation,
+  onReconcile,
+  onGoToSales,
+  selectedDate,
+  isSent,
+  sentSalesKeys,
+}: Props) {
+  const sentKeySet = new Set(sentSalesKeys);
   const [cashInput, setCashInput] = useState('');
   const [selectedEmp, setSelectedEmp] = useState('');
   const [showKeypad, setShowKeypad] = useState(false);
@@ -27,7 +39,14 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
     const itemCount = empEntries.reduce((s, e) => s + e.items.length, 0);
     const hasOpen = empEntries.some((e) => e.status === 'OPEN');
     const allClosed = empEntries.length > 0 && !hasOpen;
-    const status: 'OPEN' | 'CLOSED' | '-' = empEntries.length === 0 ? '-' : hasOpen ? 'OPEN' : 'CLOSED';
+    const isEmailed = sentKeySet.has(salesSentKey(emp.id, selectedDate));
+    const status: 'OPEN' | 'CLOSED' | 'SENT' | '-' = isEmailed
+      ? 'SENT'
+      : empEntries.length === 0
+        ? '-'
+        : hasOpen
+          ? 'OPEN'
+          : 'CLOSED';
     const rec = reconciliation.find(
       (r) => r.employeeId === emp.id && Math.abs(r.systemTotal - totalSales) < 0.01
     );
@@ -93,7 +112,9 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
                           ? 'bg-orange-900/60 text-orange-400'
                           : s.status === 'CLOSED'
                             ? 'bg-green-900/60 text-green-400'
-                            : 'text-gray-600'
+                            : s.status === 'SENT'
+                              ? 'bg-cyan-900/60 text-cyan-400'
+                              : 'text-gray-600'
                       }`}
                     >
                       {s.status}
@@ -141,6 +162,9 @@ export default function Dashboard({ entries, employees, reconciliation, onReconc
                         >
                           {isSent ? 'View' : s.status === 'CLOSED' ? 'View/Edit' : 'Edit'}
                         </button>
+                      )}
+                      {s.status === 'SENT' && (
+                        <span className="text-[8px] text-cyan-500 font-bold">Emailed</span>
                       )}
                       {s.status === '-' && !isSent && (
                         <button

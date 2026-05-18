@@ -274,7 +274,7 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
   );
 
   return (
-    <div className="w-[480px] h-[288px] bg-gray-950 flex select-none overflow-hidden">
+    <div className={`w-[480px] h-[288px] bg-gray-950 flex select-none overflow-hidden ${isSent ? 'pointer-events-none' : ''}`}>
       {/* Left: Form + Items */}
       <div className="flex-1 flex flex-col min-w-0 p-1.5 gap-1 relative">
         {isSent && (
@@ -289,7 +289,8 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
           <select
             value={employeeId}
             onChange={(e) => handleEmployeeChange(e.target.value)}
-            className="flex-1 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-xs text-green-400 focus:border-cyan-500 outline-none"
+            disabled={isSent}
+            className="flex-1 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-xs text-green-400 focus:border-cyan-500 outline-none disabled:opacity-40"
           >
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>{emp.name}</option>
@@ -311,7 +312,7 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
           )}
           {items.length === 0 ? (
             <div className="h-full flex items-center justify-center text-gray-700 text-[10px] italic">
-              No items added
+              {isSent ? 'Invoice sent — view in History' : 'No items added'}
             </div>
           ) : (
             <div className="divide-y divide-gray-800/50">

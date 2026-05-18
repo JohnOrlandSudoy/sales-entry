@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Screen, AppSettings, SalesEntry, CashReconciliation } from './types';
 import {
   loadSettings,
   saveSettings,
   loadSales,
   saveSales,
+  loadSentSales,
+  saveSentSales,
   loadReconciliation,
   saveReconciliation,
   salesSentKey,
@@ -69,6 +71,7 @@ function App() {
   const [screen, setScreen] = useState<Screen>('sales');
   const [settings, setSettingsState] = useState<AppSettings>(loadSettings);
   const [sales, setSales] = useState<SalesEntry[]>(loadSales);
+  const [sentSales, setSentSales] = useState<SalesEntry[]>(loadSentSales);
   const [reconciliation, setReconciliation] = useState<CashReconciliation[]>(loadReconciliation);
   const [dateTime, setDateTime] = useState('');
   const [masterPinTarget, setMasterPinTarget] = useState<'settings' | 'email' | null>(null);
@@ -95,7 +98,22 @@ function App() {
   // Persist
   useEffect(() => { saveSettings(settings); }, [settings]);
   useEffect(() => { saveSales(sales); }, [sales]);
+  useEffect(() => { saveSentSales(sentSales); }, [sentSales]);
   useEffect(() => { saveReconciliation(reconciliation); }, [reconciliation]);
+
+  // Move any already-sent entries still in active sales into archive (migration / safety)
+  useEffect(() => {
+    const sentKeys = new Set(settings.sentSalesKeys || []);
+    if (sentKeys.size === 0) return;
+    const toArchive = sales.filter((e) => sentKeys.has(salesSentKey(e.employeeId, e.date)));
+    if (toArchive.length === 0) return;
+    const archiveIds = new Set(toArchive.map((e) => e.id));
+    setSales((prev) => prev.filter((e) => !archiveIds.has(e.id)));
+    setSentSales((prev) => {
+      const existingIds = new Set(prev.map((e) => e.id));
+      return [...prev, ...toArchive.filter((e) => !existingIds.has(e.id))];
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUnlock = useCallback(() => setUnlocked(true), []);
 
@@ -142,12 +160,23 @@ function App() {
       return;
     }
     const keysToMark = pendingEmailEntries.map((e) => salesSentKey(e.employeeId, e.date));
+    const archiveIds = new Set(pendingEmailEntries.map((e) => e.id));
+    setSales((prev) => prev.filter((e) => !archiveIds.has(e.id)));
+    setSentSales((prev) => {
+      const existingIds = new Set(prev.map((e) => e.id));
+      return [...prev, ...pendingEmailEntries.filter((e) => !existingIds.has(e.id))];
+    });
     setSettingsState((prev) => {
       const sentSalesKeys = [...new Set([...(prev.sentSalesKeys || []), ...keysToMark])];
       const datesInBatch = [...new Set(pendingEmailEntries.map((e) => e.date))];
       const sentDates = [...(prev.sentDates || [])];
+      const remaining = sales.filter((e) => !archiveIds.has(e.id));
       for (const date of datesInBatch) {
-        const onDate = sales.filter((e) => e.date === date && e.items.length > 0);
+        const onDate = [
+          ...remaining.filter((e) => e.date === date && e.items.length > 0),
+          ...pendingEmailEntries.filter((e) => e.date === date),
+          ...sentSales.filter((e) => e.date === date && e.items.length > 0 && !archiveIds.has(e.id)),
+        ];
         const allEmailed = onDate.every((e) => sentSalesKeys.includes(salesSentKey(e.employeeId, e.date)));
         if (allEmailed && !sentDates.includes(date)) sentDates.push(date);
       }
@@ -161,13 +190,15 @@ function App() {
     );
     setTimeout(() => setEmailMsg(''), 2000);
     setShowPromoReview(false);
-  }, [pendingEmailEntries, sales, settings.senderEmail]);
+  }, [pendingEmailEntries, sales, sentSales, settings.senderEmail]);
 
   const handleMasterPinCancel = useCallback(() => {
     setMasterPinTarget(null);
   }, []);
 
   const handleSubmitSales = useCallback((entry: SalesEntry) => {
+    const key = salesSentKey(entry.employeeId, entry.date);
+    if ((settings.sentSalesKeys || []).includes(key)) return;
     setSales((prev) => {
       const existing = prev.findIndex((e) => e.id === entry.id);
       if (existing >= 0) {
@@ -177,7 +208,7 @@ function App() {
       }
       return [...prev, entry];
     });
-  }, []);
+  }, [settings.sentSalesKeys]);
 
   const handleReconcile = useCallback((rec: CashReconciliation) => {
     setReconciliation((prev) => {
@@ -191,12 +222,39 @@ function App() {
     });
   }, []);
 
-  const handleSaveSettings = useCallback((s: AppSettings) => {
-    setSettingsState(s);
-  }, []);
+  const handleSaveSettings = useCallback(
+    (s: AppSettings) => {
+      const prevKeys = new Set(settings.sentSalesKeys || []);
+      const nextKeys = new Set(s.sentSalesKeys || []);
+      const restoredKeys = new Set([...prevKeys].filter((k) => !nextKeys.has(k)));
+
+      const prevDates = new Set(settings.sentDates || []);
+      const nextDates = new Set(s.sentDates || []);
+      for (const d of prevDates) {
+        if (!nextDates.has(d)) {
+          sentSales
+            .filter((e) => e.date === d)
+            .forEach((e) => restoredKeys.add(salesSentKey(e.employeeId, e.date)));
+        }
+      }
+
+      if (restoredKeys.size > 0) {
+        const toRestore = sentSales.filter((e) => restoredKeys.has(salesSentKey(e.employeeId, e.date)));
+        const restoreIds = new Set(toRestore.map((e) => e.id));
+        setSentSales((prev) => prev.filter((e) => !restoreIds.has(e.id)));
+        setSales((prev) => {
+          const existingIds = new Set(prev.map((e) => e.id));
+          return [...prev, ...toRestore.filter((e) => !existingIds.has(e.id))];
+        });
+      }
+      setSettingsState(s);
+    },
+    [settings.sentDates, settings.sentSalesKeys, sentSales]
+  );
 
   const handleClearWeek = useCallback((weekKey: string) => {
     setSales((prev) => prev.filter((e) => e.weekKey !== weekKey));
+    setSentSales((prev) => prev.filter((e) => e.weekKey !== weekKey));
     setReconciliation((prev) => {
       const entriesToKeep = sales.filter((e) => e.weekKey !== weekKey);
       const keepIds = new Set(entriesToKeep.map((e) => e.employeeId));
@@ -204,10 +262,15 @@ function App() {
     });
   }, [sales]);
 
-  const handleGoToSales = useCallback((employeeId: string) => {
-    setSalesEmployeeId(employeeId);
-    setScreen('sales');
-  }, []);
+  const handleGoToSales = useCallback(
+    (employeeId: string) => {
+      const sentKeys = new Set(settings.sentSalesKeys || []);
+      if (sentKeys.has(salesSentKey(employeeId, selectedDate))) return;
+      setSalesEmployeeId(employeeId);
+      setScreen('sales');
+    },
+    [selectedDate, settings.sentSalesKeys]
+  );
 
   const handleDateChange = useCallback((next: string) => {
     const { minDate, maxDate } = getDateBounds();
@@ -220,11 +283,17 @@ function App() {
 
   // Find entry for selected employee and date
   const currentSalesEmployeeId = salesEmployeeId || settings.employees[0]?.id;
-  const openEntry = currentSalesEmployeeId
-    ? sales.find((e) => e.employeeId === currentSalesEmployeeId && e.date === selectedDate) || null
-    : null;
+  const openEntry =
+    currentSalesEmployeeId &&
+    !sentSalesKeySet.has(salesSentKey(currentSalesEmployeeId, selectedDate))
+      ? sales.find((e) => e.employeeId === currentSalesEmployeeId && e.date === selectedDate) || null
+      : null;
 
-  const isSent = settings.sentDates?.includes(selectedDate) || false;
+  const isEntrySent = currentSalesEmployeeId
+    ? sentSalesKeySet.has(salesSentKey(currentSalesEmployeeId, selectedDate))
+    : false;
+  const isSent = isEntrySent || (settings.sentDates?.includes(selectedDate) ?? false);
+  const historyEntries = useMemo(() => [...sales, ...sentSales], [sales, sentSales]);
   const { minDate, maxDate } = getDateBounds();
 
   return (
@@ -271,6 +340,7 @@ function App() {
                   onGoToSales={handleGoToSales}
                   selectedDate={selectedDate}
                   isSent={isSent}
+                  sentSalesKeys={settings.sentSalesKeys || []}
                 />
               )}
               {screen === 'settings' && (
@@ -282,7 +352,7 @@ function App() {
               )}
               {screen === 'history' && (
                 <WeeklyHistory
-                  entries={sales}
+                  entries={historyEntries}
                   sentDates={settings.sentDates || []}
                   sentSalesKeys={settings.sentSalesKeys || []}
                   reconciliation={reconciliation}

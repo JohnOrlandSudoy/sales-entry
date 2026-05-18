@@ -2,6 +2,7 @@ import type { AppSettings, SalesEntry, CashReconciliation, WeekRecord } from './
 
 const SETTINGS_KEY = 'dse_settings_v2'; // Updated key to force default reset
 const SALES_KEY = 'dse_sales';
+const SENT_SALES_KEY = 'dse_sent_sales';
 const RECON_KEY = 'dse_reconciliation';
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -46,6 +47,15 @@ export function loadSales(): SalesEntry[] {
 
 export function saveSales(entries: SalesEntry[]) {
   localStorage.setItem(SALES_KEY, JSON.stringify(entries));
+}
+
+export function loadSentSales(): SalesEntry[] {
+  const raw = localStorage.getItem(SENT_SALES_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+export function saveSentSales(entries: SalesEntry[]) {
+  localStorage.setItem(SENT_SALES_KEY, JSON.stringify(entries));
 }
 
 export function loadReconciliation(): CashReconciliation[] {
