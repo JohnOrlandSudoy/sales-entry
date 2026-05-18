@@ -18,6 +18,7 @@ export default function Settings({ settings, onSave, onBack }: Props) {
   const [promoHeadName, setPromoHeadName] = useState(settings.promoHeadName);
   const [senderEmail, setSenderEmail] = useState(settings.senderEmail);
   const [sentDates, setSentDates] = useState<string[]>(settings.sentDates ?? []);
+  const [sentSalesKeys, setSentSalesKeys] = useState<string[]>(settings.sentSalesKeys ?? []);
   const [systemPin, setSystemPin] = useState(settings.systemPin);
   const [masterPin, setMasterPin] = useState(settings.masterPin);
   const [editingPin, setEditingPin] = useState<PinField>(null);
@@ -41,6 +42,7 @@ export default function Settings({ settings, onSave, onBack }: Props) {
 
   const unlockSentDate = (date: string) => {
     setSentDates((prev) => prev.filter((d) => d !== date));
+    setSentSalesKeys((prev) => prev.filter((k) => !k.endsWith(`|${date}`)));
     setMsg(`Unlocked ${date} — save to apply`);
     setTimeout(() => setMsg(''), 2000);
   };
@@ -51,6 +53,7 @@ export default function Settings({ settings, onSave, onBack }: Props) {
       masterPin: masterPin || settings.masterPin,
       employees,
       sentDates,
+      sentSalesKeys,
       promoHeadName: promoHeadName.trim() || settings.promoHeadName,
       senderEmail: senderEmail.trim(),
     };

@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: '2', name: 'Howard lee' },
   ],
   sentDates: [],
+  sentSalesKeys: [],
   promoHeadName: 'Ms. Helen',
   senderEmail: '',
 };
@@ -28,6 +29,7 @@ export function loadSettings(): AppSettings {
     ...parsed,
     employees: parsed.employees ?? DEFAULT_SETTINGS.employees,
     sentDates: parsed.sentDates ?? DEFAULT_SETTINGS.sentDates,
+    sentSalesKeys: parsed.sentSalesKeys ?? DEFAULT_SETTINGS.sentSalesKeys,
     promoHeadName: parsed.promoHeadName?.trim() || DEFAULT_SETTINGS.promoHeadName,
     senderEmail: parsed.senderEmail?.trim() ?? DEFAULT_SETTINGS.senderEmail,
   };
@@ -86,6 +88,19 @@ export function buildWeekRecords(entries: SalesEntry[]): WeekRecord[] {
   }
   records.sort((a, b) => b.weekKey.localeCompare(a.weekKey));
   return records;
+}
+
+export function salesSentKey(employeeId: string, date: string): string {
+  return `${employeeId}|${date}`;
+}
+
+export function isEntryReconciled(entry: SalesEntry, recs: CashReconciliation[]): boolean {
+  return recs.some(
+    (r) =>
+      r.employeeId === entry.employeeId &&
+      r.status === 'MATCH' &&
+      Math.abs(r.systemTotal - entry.grandTotal) < 0.01
+  );
 }
 
 export function genId(): string {

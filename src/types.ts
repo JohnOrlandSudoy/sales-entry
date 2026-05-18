@@ -36,6 +36,8 @@ export interface AppSettings {
   masterPin: string;
   employees: Employee[];
   sentDates?: string[];
+  /** `${employeeId}|${date}` — invoice emailed for this salesman/day */
+  sentSalesKeys?: string[];
   promoHeadName: string;
   senderEmail: string;
 }

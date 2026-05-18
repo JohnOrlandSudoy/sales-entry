@@ -1,22 +1,58 @@
-import { useState } from 'react';
-import type { SalesEntry, WeekRecord } from '../types';
-import { buildWeekRecords } from '../storage';
-import { Calendar, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import type { SalesEntry, WeekRecord, CashReconciliation } from '../types';
+import { buildWeekRecords, salesSentKey, isEntryReconciled } from '../storage';
+import { Calendar, Trash2, ChevronDown, ChevronRight, Mail } from 'lucide-react';
 
 interface Props {
   entries: SalesEntry[];
+  sentDates: string[];
+  sentSalesKeys: string[];
+  reconciliation: CashReconciliation[];
   onClearWeek: (weekKey: string) => void;
   masterPin: string;
   onBack: () => void;
 }
 
-export default function WeeklyHistory({ entries, onClearWeek, masterPin, onBack }: Props) {
+export default function WeeklyHistory({
+  entries,
+  sentDates,
+  sentSalesKeys,
+  reconciliation,
+  onClearWeek,
+  masterPin,
+  onBack,
+}: Props) {
   const [expandedWeek, setExpandedWeek] = useState<string | null>(null);
   const [clearConfirm, setClearConfirm] = useState<string | null>(null);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
 
+  const sentDateSet = useMemo(() => new Set(sentDates), [sentDates]);
+  const sentSalesKeySet = useMemo(() => new Set(sentSalesKeys), [sentSalesKeys]);
+
+  const getInvoiceBadge = (entry: SalesEntry) => {
+    if (entry.items.length === 0) return null;
+    const key = salesSentKey(entry.employeeId, entry.date);
+    if (sentSalesKeySet.has(key) || sentDateSet.has(entry.date)) {
+      return { label: 'SENT', className: 'bg-green-900/60 text-green-400' };
+    }
+    if (entry.status === 'OPEN') {
+      return { label: 'OPEN', className: 'bg-orange-900/60 text-orange-400' };
+    }
+    if (!isEntryReconciled(entry, reconciliation)) {
+      return { label: 'AWAIT RECON', className: 'bg-red-900/60 text-red-400' };
+    }
+    return { label: 'PENDING', className: 'bg-amber-900/60 text-amber-400' };
+  };
   const weekRecords: WeekRecord[] = buildWeekRecords(entries);
+
+  const invoiceStatusByDate = useMemo(() => {
+    const datesWithSales = new Set<string>();
+    for (const e of entries) {
+      if (e.items.length > 0) datesWithSales.add(e.date);
+    }
+    return [...datesWithSales].sort((a, b) => b.localeCompare(a));
+  }, [entries]);
 
   const toggleWeek = (weekKey: string) => {
     setExpandedWeek(expandedWeek === weekKey ? null : weekKey);
@@ -56,6 +92,43 @@ export default function WeeklyHistory({ entries, onClearWeek, masterPin, onBack 
         </button>
       </div>
 
+      {/* Invoice email status */}
+      {invoiceStatusByDate.length > 0 && (
+        <div className="mx-1.5 mt-1 mb-0.5 border border-gray-800 rounded bg-gray-900/60 shrink-0">
+          <div className="px-1.5 py-0.5 border-b border-gray-800 flex items-center gap-1">
+            <Mail size={9} className="text-yellow-500" />
+            <span className="text-[8px] text-yellow-500 font-bold uppercase tracking-wide">Invoice status</span>
+          </div>
+          <div className="max-h-[52px] overflow-y-auto px-1.5 py-0.5 flex flex-wrap gap-1">
+            {invoiceStatusByDate.map((date) => {
+              const onDate = entries.filter((e) => e.date === date && e.items.length > 0);
+              const allSent = onDate.every(
+                (e) => sentSalesKeySet.has(salesSentKey(e.employeeId, e.date)) || sentDateSet.has(date)
+              );
+              const anyReady = onDate.some(
+                (e) => e.status === 'CLOSED' && isEntryReconciled(e, reconciliation)
+              );
+              const label = allSent ? 'SENT' : anyReady ? 'PARTIAL' : 'IN PROGRESS';
+              const sent = allSent;
+              return (
+                <span
+                  key={date}
+                  className={`text-[7px] px-1 py-0.5 rounded font-bold border ${
+                    sent
+                      ? 'bg-green-900/50 text-green-400 border-green-800'
+                      : label === 'PARTIAL'
+                        ? 'bg-amber-900/40 text-amber-400 border-amber-800'
+                        : 'bg-gray-800/80 text-gray-400 border-gray-700'
+                  }`}
+                >
+                  {date} · {label}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Week list */}
       <div className="flex-1 overflow-y-auto min-h-0 p-1.5 pt-1">
         {weekRecords.length === 0 ? (
@@ -90,35 +163,44 @@ export default function WeeklyHistory({ entries, onClearWeek, masterPin, onBack 
                 </button>
                 {isExpanded && (
                   <div className="border-t border-gray-800/50 px-1.5 py-0.5">
-                    {wr.entries.map((entry) => (
-                      <div key={entry.id} className="flex items-center justify-between py-0.5 border-b border-gray-800/30 last:border-0">
-                        <div className="text-[9px] flex flex-col">
-                          <div>
-                            <span className="text-green-400 font-bold">{entry.employeeName}</span>
-                            <span className="text-gray-600 ml-1">({entry.items.length} items)</span>
+                    {wr.entries.map((entry) => {
+                      const invoiceBadge = getInvoiceBadge(entry);
+                      return (
+                        <div key={entry.id} className="flex items-center justify-between py-0.5 border-b border-gray-800/30 last:border-0">
+                          <div className="text-[9px] flex flex-col">
+                            <div>
+                              <span className="text-green-400 font-bold">{entry.employeeName}</span>
+                              <span className="text-gray-600 ml-1">({entry.items.length} items)</span>
+                              <span className="text-gray-500 ml-1">{entry.date}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                              {entry.items.map((item, idx) => (
+                                <span key={idx} className="text-[7px] text-cyan-500 font-mono">
+                                  {item.barcode}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
-                            {entry.items.map((item, idx) => (
-                              <span key={idx} className="text-[7px] text-cyan-500 font-mono">
-                                {item.barcode}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-yellow-400 text-[9px] font-mono">₱{entry.grandTotal.toFixed(2)}</span>
+                            {invoiceBadge && (
+                              <span className={`text-[7px] px-1 py-0.5 rounded font-bold ${invoiceBadge.className}`}>
+                                {invoiceBadge.label}
                               </span>
-                            ))}
+                            )}
+                            <span
+                              className={`text-[7px] px-1 py-0.5 rounded font-bold ${
+                                entry.status === 'CLOSED'
+                                  ? 'bg-green-900/60 text-green-400'
+                                  : 'bg-orange-900/60 text-orange-400'
+                              }`}
+                            >
+                              {entry.status}
+                            </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-yellow-400 text-[9px] font-mono">₱{entry.grandTotal.toFixed(2)}</span>
-                          <span
-                            className={`text-[7px] px-1 py-0.5 rounded font-bold ${
-                              entry.status === 'CLOSED'
-                                ? 'bg-green-900/60 text-green-400'
-                                : 'bg-orange-900/60 text-orange-400'
-                            }`}
-                          >
-                            {entry.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

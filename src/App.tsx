@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Screen, AppSettings, SalesEntry, CashReconciliation } from './types';
-import { loadSettings, saveSettings, loadSales, saveSales, loadReconciliation, saveReconciliation } from './storage';
+import {
+  loadSettings,
+  saveSettings,
+  loadSales,
+  saveSales,
+  loadReconciliation,
+  saveReconciliation,
+  salesSentKey,
+  isEntryReconciled,
+} from './storage';
 import LockScreen from './components/LockScreen';
 import Header from './components/Header';
 import SalesEntryScreen from './components/SalesEntry';
@@ -106,6 +115,18 @@ function App() {
     setMasterPinTarget('email');
   }, []);
 
+  const sentSalesKeySet = new Set(settings.sentSalesKeys || []);
+  const pendingEmailEntries = sales.filter(
+    (e) =>
+      e.items.length > 0 &&
+      e.status === 'CLOSED' &&
+      isEntryReconciled(e, reconciliation) &&
+      !sentSalesKeySet.has(salesSentKey(e.employeeId, e.date))
+  );
+  const hasUnsentSalesWork = sales.some(
+    (e) => e.items.length > 0 && !sentSalesKeySet.has(salesSentKey(e.employeeId, e.date))
+  );
+
   const handleMasterPinSuccess = useCallback(() => {
     if (masterPinTarget === 'settings') {
       setScreen('settings');
@@ -116,20 +137,31 @@ function App() {
   }, [masterPinTarget]);
 
   const handleSendEmail = useCallback(() => {
-    setSettingsState((prev) => ({
-      ...prev,
-      sentDates: (prev.sentDates || []).includes(selectedDate)
-        ? (prev.sentDates || [])
-        : [...(prev.sentDates || []), selectedDate],
-    }));
+    if (pendingEmailEntries.length === 0) {
+      setShowPromoReview(false);
+      return;
+    }
+    const keysToMark = pendingEmailEntries.map((e) => salesSentKey(e.employeeId, e.date));
+    setSettingsState((prev) => {
+      const sentSalesKeys = [...new Set([...(prev.sentSalesKeys || []), ...keysToMark])];
+      const datesInBatch = [...new Set(pendingEmailEntries.map((e) => e.date))];
+      const sentDates = [...(prev.sentDates || [])];
+      for (const date of datesInBatch) {
+        const onDate = sales.filter((e) => e.date === date && e.items.length > 0);
+        const allEmailed = onDate.every((e) => sentSalesKeys.includes(salesSentKey(e.employeeId, e.date)));
+        if (allEmailed && !sentDates.includes(date)) sentDates.push(date);
+      }
+      return { ...prev, sentSalesKeys, sentDates };
+    });
+    const sentCount = keysToMark.length;
     setEmailMsg(
       settings.senderEmail
         ? `Invoice sent from ${settings.senderEmail}!`
-        : 'Invoice sent to client!'
+        : `Invoice sent (${sentCount} salesman${sentCount > 1 ? 's' : ''})!`
     );
     setTimeout(() => setEmailMsg(''), 2000);
     setShowPromoReview(false);
-  }, [selectedDate, settings.senderEmail]);
+  }, [pendingEmailEntries, sales, settings.senderEmail]);
 
   const handleMasterPinCancel = useCallback(() => {
     setMasterPinTarget(null);
@@ -251,6 +283,9 @@ function App() {
               {screen === 'history' && (
                 <WeeklyHistory
                   entries={sales}
+                  sentDates={settings.sentDates || []}
+                  sentSalesKeys={settings.sentSalesKeys || []}
+                  reconciliation={reconciliation}
                   onClearWeek={handleClearWeek}
                   masterPin={settings.masterPin}
                   onBack={() => setScreen('dashboard')}
@@ -288,11 +323,23 @@ function App() {
                 <div className="bg-gray-900 border border-gray-700 rounded w-[440px] h-[260px] flex flex-col shadow-2xl overflow-hidden">
                   <div className="p-2 border-b border-gray-800 flex justify-between items-center bg-gray-950">
                     <div className="text-[10px] text-yellow-400 font-bold uppercase tracking-widest">
-                      Review by: {settings.promoHeadName} - CSV Invoice
+                      Pending email — {settings.promoHeadName}
                     </div>
                     <button onClick={() => setShowPromoReview(false)} className="text-gray-500 hover:text-white">✕</button>
                   </div>
-                  <div className="flex-1 p-0 overflow-auto bg-gray-950">
+                  <div className="flex-1 p-0 overflow-auto bg-gray-950 min-h-0">
+                {pendingEmailEntries.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-2 p-4 text-center">
+                    <p className="text-green-400 text-xs font-bold">
+                      {hasUnsentSalesWork ? 'Nothing ready to send' : 'All invoices sent'}
+                    </p>
+                    <p className="text-gray-500 text-[9px]">
+                      {hasUnsentSalesWork
+                        ? 'Close OPEN sales on Dash, then complete cash reconciliation'
+                        : 'View sent status in History tab'}
+                    </p>
+                  </div>
+                ) : (
                 <table className="w-full text-[7px] border-collapse">
                   <thead className="sticky top-0 bg-gray-900 text-yellow-500 uppercase font-bold border-b border-gray-800">
                     <tr>
@@ -307,7 +354,7 @@ function App() {
                     </tr>
                   </thead>
                   <tbody className="text-cyan-400 font-mono">
-                    {buildInvoiceReviewRows(sales).map(({ entry, item, itemIdx, isLastInSale, isLastForSalesman, salesmanTotalQty }) => (
+                    {buildInvoiceReviewRows(pendingEmailEntries).map(({ entry, item, itemIdx, isLastInSale, isLastForSalesman, salesmanTotalQty }) => (
                       <tr
                         key={`${entry.id}-${itemIdx}`}
                         className={`border-b border-gray-900 hover:bg-gray-900/50 ${isLastForSalesman ? 'border-b-gray-700' : ''}`}
@@ -330,6 +377,7 @@ function App() {
                     ))}
                   </tbody>
                 </table>
+                )}
               </div>
                   <div className="p-2 border-t border-gray-800 flex gap-2 bg-gray-950">
                     <button
@@ -340,7 +388,8 @@ function App() {
                     </button>
                     <button
                       onClick={handleSendEmail}
-                      className="flex-1 h-8 bg-green-700 hover:bg-green-600 rounded text-white text-xs font-bold shadow-lg shadow-green-900/20 active:scale-95 transition-transform"
+                      disabled={pendingEmailEntries.length === 0}
+                      className="flex-1 h-8 bg-green-700 hover:bg-green-600 disabled:bg-gray-800 disabled:text-gray-600 rounded text-white text-xs font-bold shadow-lg shadow-green-900/20 active:scale-95 transition-transform"
                     >
                       APPROVE & SEND EMAIL
                     </button>
