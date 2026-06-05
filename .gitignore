@@ -1,23 +1,57 @@
-logs
+# --- Dependencies ---
+node_modules/
+server/node_modules/
+
+# --- Build output ---
+dist/
+dist-ssr/
+.pio/
+.platformio/
+build/
+*.elf
+*.bin
+*.map
+
+# --- Secrets (huwag i-commit) ---
+.env
+.env.*
+!.env.example
+server/.env
+*.pem
+*.key
+credentials.json
+secrets.json
+**/app_defaults.local.h
+
+# --- Logs ---
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
+# --- IDE / editor ---
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-.env
+.cursor/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Local / temp ---
+*.local
+*.tmp
+*.bak
+~$*
+
+# --- Optional: kung may local SD backup na kinopya sa PC ---
+# DailySales/*.cfg

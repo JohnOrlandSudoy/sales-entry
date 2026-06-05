@@ -39,7 +39,10 @@ export interface AppSettings {
   /** `${employeeId}|${date}` — invoice emailed for this salesman/day */
   sentSalesKeys?: string[];
   promoHeadName: string;
+  /** SMTP From address (usually same as Gmail account) */
   senderEmail: string;
+  /** Who receives the invoice (promo head inbox) */
+  recipientEmail: string;
 }
 
 export interface WeekRecord {

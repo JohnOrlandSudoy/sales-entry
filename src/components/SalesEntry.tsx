@@ -92,10 +92,37 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
     onEmployeeChange(id);
   };
 
+  const BARCODE_MAX = 13;
+  const PRICE_MAX = 10;
+
+  const handleKeypadChange = (next: string) => {
+    if (activeField === 'barcode') {
+      const dot = next.indexOf('.');
+      if (dot >= 0) {
+        setBarcode(next.slice(0, dot).slice(0, BARCODE_MAX));
+        setActiveField('price');
+        setPrice(next.slice(dot + 1).slice(0, PRICE_MAX));
+        return;
+      }
+      if (next.length > BARCODE_MAX) {
+        setBarcode(next.slice(0, BARCODE_MAX));
+        setActiveField('price');
+        setPrice(next.slice(BARCODE_MAX).slice(0, PRICE_MAX));
+        return;
+      }
+      setBarcode(next);
+      return;
+    }
+    if (activeField === 'price') {
+      setPrice(next.slice(0, PRICE_MAX));
+      return;
+    }
+    setManualTotal(next.slice(0, PRICE_MAX));
+  };
+
   const keypadVal = activeField === 'barcode' ? barcode : activeField === 'price' ? price : manualTotal;
-  const keypadSet = activeField === 'barcode' ? setBarcode : activeField === 'price' ? setPrice : setManualTotal;
   const keypadDecimal = true;
-  const keypadMax = activeField === 'barcode' ? 13 : 10;
+  const keypadMax = activeField === 'barcode' ? BARCODE_MAX : PRICE_MAX;
 
   const addItem = () => {
     if (isSent) {
@@ -301,6 +328,7 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
         {/* Field selectors */}
         <div className="flex flex-col gap-0.5">
           {fieldBtn('barcode', 'Barcode', barcode ? padBarcode(barcode) : '')}
+          {fieldBtn('price', 'Price', price ? `₱${price}` : '')}
         </div>
 
         {/* Items list */}
@@ -512,7 +540,7 @@ export default function SalesEntryScreen({ employees, onSubmit, existingOpenEntr
         <div className={`flex-1 min-h-0 flex flex-col overflow-hidden ${isSent ? 'pointer-events-none opacity-40' : ''}`}>
           <NumericKeypad
             value={keypadVal}
-            onChange={keypadSet}
+            onChange={handleKeypadChange}
             placeholder={activeField.toUpperCase()}
             showDecimal={keypadDecimal}
             maxLen={keypadMax}

@@ -17,6 +17,7 @@ export default function Settings({ settings, onSave, onBack }: Props) {
   const [newName, setNewName] = useState('');
   const [promoHeadName, setPromoHeadName] = useState(settings.promoHeadName);
   const [senderEmail, setSenderEmail] = useState(settings.senderEmail);
+  const [recipientEmail, setRecipientEmail] = useState(settings.recipientEmail);
   const [sentDates, setSentDates] = useState<string[]>(settings.sentDates ?? []);
   const [sentSalesKeys, setSentSalesKeys] = useState<string[]>(settings.sentSalesKeys ?? []);
   const [systemPin, setSystemPin] = useState(settings.systemPin);
@@ -56,6 +57,7 @@ export default function Settings({ settings, onSave, onBack }: Props) {
       sentSalesKeys,
       promoHeadName: promoHeadName.trim() || settings.promoHeadName,
       senderEmail: senderEmail.trim(),
+      recipientEmail: recipientEmail.trim(),
     };
     onSave(newSettings);
     setMsg('Saved!');
@@ -100,8 +102,18 @@ export default function Settings({ settings, onSave, onBack }: Props) {
               type="email"
               value={senderEmail}
               onChange={(e) => setSenderEmail(e.target.value)}
-              placeholder="Sender email..."
+              placeholder="SMTP sender (Gmail)..."
               className="flex-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-cyan-400 outline-none focus:border-cyan-500"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <Mail size={9} className="text-green-500 shrink-0" />
+            <input
+              type="email"
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+              placeholder="Invoice recipient email..."
+              className="flex-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-green-400 outline-none focus:border-green-500"
             />
           </div>
         </div>
@@ -210,7 +222,7 @@ export default function Settings({ settings, onSave, onBack }: Props) {
             value={pinVal}
             onChange={pinSet}
             placeholder={`${editingPin.toUpperCase()} PIN`}
-            showDecimal={true}
+            showDecimal={false}
             maxLen={4}
             onSubmit={() => setEditingPin(null)}
           />

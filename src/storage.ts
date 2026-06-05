@@ -15,7 +15,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   sentDates: [],
   sentSalesKeys: [],
   promoHeadName: 'Ms. Helen',
-  senderEmail: '',
+  senderEmail: 'teststore@mcjimleather1.com',
+  recipientEmail: 'devorlandiv@gmail.com',
 };
 
 export function loadSettings(): AppSettings {
@@ -32,7 +33,8 @@ export function loadSettings(): AppSettings {
     sentDates: parsed.sentDates ?? DEFAULT_SETTINGS.sentDates,
     sentSalesKeys: parsed.sentSalesKeys ?? DEFAULT_SETTINGS.sentSalesKeys,
     promoHeadName: parsed.promoHeadName?.trim() || DEFAULT_SETTINGS.promoHeadName,
-    senderEmail: parsed.senderEmail?.trim() ?? DEFAULT_SETTINGS.senderEmail,
+    senderEmail: parsed.senderEmail?.trim() || DEFAULT_SETTINGS.senderEmail,
+    recipientEmail: parsed.recipientEmail?.trim() || DEFAULT_SETTINGS.recipientEmail,
   };
 }
 
@@ -123,11 +125,47 @@ export function padBarcode(input: string): string {
 }
 
 export function generateSalesCSV(entries: SalesEntry[]): string {
-  const header = 'Date,Salesman,Barcode,Price,Discount,Total\n';
-  const rows = entries.flatMap(entry => 
-    entry.items.map(item => 
-      `${entry.date},"${entry.employeeName}",${item.barcode},${item.price},${item.discount},${item.lineTotal}`
-    )
-  ).join('\n');
-  return header + rows;
+  const header =
+    'Date,Salesman,Barcode,Price,Qty,LineTotal,TotQty,SysTotal,Manual\n';
+  const flat = entries.flatMap((entry) => {
+    const lastIdx = entry.items.length - 1;
+    return entry.items.map((item, itemIdx) => ({
+      entry,
+      item,
+      itemIdx,
+      isLastInSale: itemIdx === lastIdx,
+    }));
+  });
+  flat.sort((a, b) => {
+    const byName = a.entry.employeeName.localeCompare(b.entry.employeeName);
+    if (byName !== 0) return byName;
+    return a.entry.date.localeCompare(b.entry.date);
+  });
+  const totalQtyBySalesman = new Map<string, number>();
+  for (const { entry, item } of flat) {
+    const name = entry.employeeName;
+    totalQtyBySalesman.set(
+      name,
+      (totalQtyBySalesman.get(name) ?? 0) + item.quantity
+    );
+  }
+  const lastRowBySalesman = new Map<string, number>();
+  flat.forEach((r, i) => lastRowBySalesman.set(r.entry.employeeName, i));
+
+  const rows = flat.map((r, i) => {
+    const isLastForSalesman = lastRowBySalesman.get(r.entry.employeeName) === i;
+    const totQty = isLastForSalesman
+      ? String(totalQtyBySalesman.get(r.entry.employeeName) ?? 0)
+      : '';
+    const sysTotal = r.isLastInSale ? r.entry.grandTotal.toFixed(2) : '';
+    const manual = r.isLastInSale
+      ? (r.entry.manualTotal ?? 0).toFixed(2)
+      : '';
+    const name =
+      r.entry.employeeName.includes(',') || r.entry.employeeName.includes('"')
+        ? `"${r.entry.employeeName.replace(/"/g, '""')}"`
+        : r.entry.employeeName;
+    return `${r.entry.date},${name},${r.item.barcode},${r.item.price},${r.item.quantity},${r.item.lineTotal},${totQty},${sysTotal},${manual}`;
+  });
+  return header + rows.join('\n') + (rows.length ? '\n' : '');
 }

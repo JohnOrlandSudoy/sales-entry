@@ -12,6 +12,7 @@ import {
   salesSentKey,
   isEntryReconciled,
 } from './storage';
+import { sendInvoiceEmail } from './invoiceEmail';
 import LockScreen from './components/LockScreen';
 import Header from './components/Header';
 import SalesEntryScreen from './components/SalesEntry';
@@ -77,6 +78,7 @@ function App() {
   const [masterPinTarget, setMasterPinTarget] = useState<'settings' | 'email' | null>(null);
   const [salesEmployeeId, setSalesEmployeeId] = useState<string | undefined>(undefined);
   const [emailMsg, setEmailMsg] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
   const [showPromoReview, setShowPromoReview] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => toDateInput(new Date()));
 
@@ -154,43 +156,62 @@ function App() {
     setMasterPinTarget(null);
   }, [masterPinTarget]);
 
-  const handleSendEmail = useCallback(() => {
+  const markInvoiceSentLocally = useCallback(
+    (batch: SalesEntry[]) => {
+      const keysToMark = batch.map((e) => salesSentKey(e.employeeId, e.date));
+      const archiveIds = new Set(batch.map((e) => e.id));
+      setSales((prev) => prev.filter((e) => !archiveIds.has(e.id)));
+      setSentSales((prev) => {
+        const existingIds = new Set(prev.map((e) => e.id));
+        return [...prev, ...batch.filter((e) => !existingIds.has(e.id))];
+      });
+      setSettingsState((prev) => {
+        const sentSalesKeys = [...new Set([...(prev.sentSalesKeys || []), ...keysToMark])];
+        const datesInBatch = [...new Set(batch.map((e) => e.date))];
+        const sentDates = [...(prev.sentDates || [])];
+        const remaining = sales.filter((e) => !archiveIds.has(e.id));
+        for (const date of datesInBatch) {
+          const onDate = [
+            ...remaining.filter((e) => e.date === date && e.items.length > 0),
+            ...batch.filter((e) => e.date === date),
+            ...sentSales.filter((e) => e.date === date && e.items.length > 0 && !archiveIds.has(e.id)),
+          ];
+          const allEmailed = onDate.every((e) =>
+            sentSalesKeys.includes(salesSentKey(e.employeeId, e.date))
+          );
+          if (allEmailed && !sentDates.includes(date)) sentDates.push(date);
+        }
+        return { ...prev, sentSalesKeys, sentDates };
+      });
+    },
+    [sales, sentSales]
+  );
+
+  const handleSendEmail = useCallback(async () => {
     if (pendingEmailEntries.length === 0) {
       setShowPromoReview(false);
       return;
     }
-    const keysToMark = pendingEmailEntries.map((e) => salesSentKey(e.employeeId, e.date));
-    const archiveIds = new Set(pendingEmailEntries.map((e) => e.id));
-    setSales((prev) => prev.filter((e) => !archiveIds.has(e.id)));
-    setSentSales((prev) => {
-      const existingIds = new Set(prev.map((e) => e.id));
-      return [...prev, ...pendingEmailEntries.filter((e) => !existingIds.has(e.id))];
-    });
-    setSettingsState((prev) => {
-      const sentSalesKeys = [...new Set([...(prev.sentSalesKeys || []), ...keysToMark])];
-      const datesInBatch = [...new Set(pendingEmailEntries.map((e) => e.date))];
-      const sentDates = [...(prev.sentDates || [])];
-      const remaining = sales.filter((e) => !archiveIds.has(e.id));
-      for (const date of datesInBatch) {
-        const onDate = [
-          ...remaining.filter((e) => e.date === date && e.items.length > 0),
-          ...pendingEmailEntries.filter((e) => e.date === date),
-          ...sentSales.filter((e) => e.date === date && e.items.length > 0 && !archiveIds.has(e.id)),
-        ];
-        const allEmailed = onDate.every((e) => sentSalesKeys.includes(salesSentKey(e.employeeId, e.date)));
-        if (allEmailed && !sentDates.includes(date)) sentDates.push(date);
-      }
-      return { ...prev, sentSalesKeys, sentDates };
-    });
-    const sentCount = keysToMark.length;
+    setEmailSending(true);
+    const result = await sendInvoiceEmail(settings, pendingEmailEntries);
+    setEmailSending(false);
+
+    if (!result.ok) {
+      setEmailMsg(result.error);
+      setTimeout(() => setEmailMsg(''), 4000);
+      return;
+    }
+
+    markInvoiceSentLocally(pendingEmailEntries);
+    const sentCount = pendingEmailEntries.length;
     setEmailMsg(
-      settings.senderEmail
-        ? `Invoice sent from ${settings.senderEmail}!`
+      settings.recipientEmail
+        ? `Invoice emailed to ${settings.recipientEmail}!`
         : `Invoice sent (${sentCount} salesman${sentCount > 1 ? 's' : ''})!`
     );
-    setTimeout(() => setEmailMsg(''), 2000);
+    setTimeout(() => setEmailMsg(''), 3000);
     setShowPromoReview(false);
-  }, [pendingEmailEntries, sales, sentSales, settings.senderEmail]);
+  }, [pendingEmailEntries, settings, markInvoiceSentLocally]);
 
   const handleMasterPinCancel = useCallback(() => {
     setMasterPinTarget(null);
@@ -457,11 +478,11 @@ function App() {
                       CANCEL
                     </button>
                     <button
-                      onClick={handleSendEmail}
-                      disabled={pendingEmailEntries.length === 0}
+                      onClick={() => void handleSendEmail()}
+                      disabled={pendingEmailEntries.length === 0 || emailSending}
                       className="flex-1 h-8 bg-green-700 hover:bg-green-600 disabled:bg-gray-800 disabled:text-gray-600 rounded text-white text-xs font-bold shadow-lg shadow-green-900/20 active:scale-95 transition-transform"
                     >
-                      APPROVE & SEND EMAIL
+                      {emailSending ? 'SENDING...' : 'APPROVE & SEND EMAIL'}
                     </button>
                   </div>
                 </div>

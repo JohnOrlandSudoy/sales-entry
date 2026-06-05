@@ -1,0 +1,10 @@
+.pio/
+.platformio/
+.vscode/.browse.c_cpp_db*
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch
+*.elf
+*.bin
+*.map
+app_defaults.local.h

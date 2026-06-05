@@ -1,0 +1,26 @@
+#ifndef APP_DEFAULTS_H
+#define APP_DEFAULTS_H
+
+/**
+ * Copy to app_defaults.h kung gusto mo may default email/SMTP sa unang boot.
+ * O iwan blank — ilalagay na lang sa Settings sa device pagkatapos mag-upload.
+ *
+ * HUWAG ilagay ang tunay na Gmail App Password dito kung ipu-push sa GitHub.
+ * Gamitin ang Settings screen sa device, o local na app_defaults.h (naka-gitignore).
+ */
+
+#ifndef APP_DEFAULT_SENDER_EMAIL
+#define APP_DEFAULT_SENDER_EMAIL     ""
+#endif
+#ifndef APP_DEFAULT_RECIPIENT_EMAIL
+#define APP_DEFAULT_RECIPIENT_EMAIL  ""
+#endif
+#ifndef APP_DEFAULT_SMTP_APP_PASSWORD
+#define APP_DEFAULT_SMTP_APP_PASSWORD ""
+#endif
+
+#ifndef APP_SMTP_HOST
+#define APP_SMTP_HOST  "smtp.gmail.com"
+#endif
+
+#endif
